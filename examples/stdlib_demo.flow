@@ -1,0 +1,89 @@
+-- Standard Library Demo
+-- This script demonstrates the new capabilities of FlowLang: File I/O, JSON, and Time.
+
+circle fs from "std:file"
+circle json from "std:json"
+circle time from "std:time"
+
+shout("=== FlowLang Standard Library Demo ===")
+
+-- 1. Time Module
+shout("")
+shout("[1] Time Module")
+let now = time.now()
+whisper("Current time: " + now)
+
+let timestamp = time.timestamp()
+whisper("Unix timestamp: " + timestamp)
+
+whisper("Sleeping for 1 second...")
+time.sleep(1)
+whisper("Woke up!")
+
+-- 2. File Module
+shout("")
+shout("[2] File Module")
+let test_file = "test_data.txt"
+
+let file_exists = fs.exists(test_file)
+in Stance (file_exists) {
+    whisper("Cleaning up old test file...")
+    fs.delete(test_file)
+}
+
+whisper("Writing to file: " + test_file)
+fs.write(test_file, "Hello from FlowLang Standard Library!")
+
+let exists_now = fs.exists(test_file)
+in Stance (exists_now) {
+    let content = fs.read(test_file)
+    whisper("Read from file: " + content)
+}
+
+-- 3. JSON Module
+shout("")
+shout("[3] JSON Module")
+
+-- Test with array
+let numbers = [1, 2, 3, 4, 5]
+whisper("Original array: " + numbers)
+
+let json_str = json.stringify(numbers)
+whisper("JSON stringified: " + json_str)
+
+let parsed = json.parse(json_str)
+whisper("Parsed back: " + parsed)
+
+-- Test parsing JSON string
+let json_data = "[10, 20, 30, 40, 50]"
+let parsed_nums = json.parse(json_data)
+whisper("Parsed JSON: " + parsed_nums)
+
+-- 4. Directory Operations
+shout("")
+shout("[4] Directory Operations")
+
+let test_dir = "test_directory"
+whisper("Creating directory: " + test_dir)
+fs.create_dir(test_dir)
+
+let dir_exists = fs.exists(test_dir)
+in Stance (dir_exists) {
+    whisper("Directory exists: true")
+}
+
+-- Create a file in the directory
+let file_in_dir = "test_directory/sample.txt"
+fs.write(file_in_dir, "File inside directory")
+
+whisper("Listing directory contents...")
+let files = fs.list(test_dir)
+whisper("Files in directory: " + files)
+
+-- Cleanup
+whisper("Cleaning up...")
+fs.delete(test_dir)
+fs.delete(test_file)
+
+shout("")
+chant("✅ All tests completed successfully!")

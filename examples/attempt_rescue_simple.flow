@@ -1,0 +1,19 @@
+-- ⚔️ ATTEMPT/RESCUE DEMONSTRATION ⚔️
+-- Comprehensive try-catch error handling examples
+
+shout("=== ATTEMPT/RESCUE DEMONSTRATION ===")
+shout("")
+
+-- Example 1: Basic Attempt/Rescue
+shout("[1] Basic Error Catching")
+attempt {
+    shout("Attempting risky operation...")
+    rupture Spirit "Something went wrong"
+}
+rescue {
+    shout("Error caught and handled")
+    whisper("Rescue block executed")
+}
+
+shout("")
+chant("Test completed!")

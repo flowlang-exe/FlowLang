@@ -1,0 +1,19 @@
+-- Wait Statement Test
+-- Tests different wait durations
+
+shout("Testing wait statement...")
+
+shout("Waiting 500ms...")
+wait 500ms
+shout("500ms done!")
+
+shout("Waiting 2 seconds...")
+wait 2s
+shout("2s done!")
+
+-- Note: 1m would take too long for a quick test
+-- shout("Waiting 1 minute...")
+-- wait 1m
+-- shout("1m done!")
+
+shout("All waits completed!")

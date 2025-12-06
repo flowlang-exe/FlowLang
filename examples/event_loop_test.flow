@@ -1,0 +1,18 @@
+-- Event Loop Test
+-- Verifies that the process stays alive while timers are active
+
+circle timer from "std:timer"
+
+shout("⚡ Event Loop Test")
+shout("Creating timer - process should stay alive for 3 seconds...")
+
+-- Define callback first, then pass it
+cast Spell tick() -> Hollow {
+    shout("Tick!")
+}
+
+let handle = timer.interval(1000, tick)
+
+wait 3s
+timer.clear(handle)
+shout("✅ Test passed!")

@@ -1,0 +1,8 @@
+-- Simple Hello World in FlowLang
+
+cast Spell main() -> Hollow {
+    shout("🌌 Hello from FlowLang! 🌌")
+    whisper("The mystical energies awaken...")
+}
+
+main()

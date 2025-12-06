@@ -1,0 +1,5 @@
+-- Test circular dependency detection
+-- This should trigger an error showing the circular import chain
+circle circular_a from "modules/circular_a.flow"
+
+shout("If you see this, circular dependency detection failed!")

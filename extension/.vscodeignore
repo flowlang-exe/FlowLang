@@ -1,0 +1,7 @@
+src/**
+*.vsix
+.vscode-test/**
+tsconfig.json
+pnpm-lock.yaml
+package-lock.json
+*.ts

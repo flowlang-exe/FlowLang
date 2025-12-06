@@ -1,0 +1,26 @@
+-- Test inline Spell functions
+
+-- Test 1: Expression Spell
+let double = cast Spell (x) -> x * 2
+shout("Test 1: double(5) = " + double(5))
+
+-- Test 2: Single param shortcut
+let square = cast Spell x -> x * x
+shout("Test 2: square(4) = " + square(4))
+
+-- Test 3: Block Spell
+let greet = cast Spell (name) {
+    let message = "Hello, " + name + "!"
+    return message
+}
+shout("Test 3: " + greet("FlowLang"))
+
+-- Test 4: No parameters
+let sayHi = cast Spell () -> "Hi there!"
+shout("Test 4: " + sayHi())
+
+-- Test 5: Multi-parameter
+let add = cast Spell (a, b) -> a + b
+shout("Test 5: add(10, 20) = " + add(10, 20))
+
+shout("\n✅ All inline Spell tests passed!")

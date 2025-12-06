@@ -1,0 +1,5 @@
+-- This should fail in strict mode due to missing type annotation
+
+let x: Ember = 42
+
+shout(x)

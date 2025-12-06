@@ -1,0 +1,14 @@
+-- Episode 8: LOCKED DOORS, SILENT FILES (File Not Found)
+-- This should trigger a Rift error (file not found)
+
+circle fs from "std:file"
+
+shout("Attempting to read non-existent file...")
+
+attempt {
+    let content = fs.read("nonexistent_file.txt")
+    shout(content)
+} rescue Rift as e {
+    shout("Caught error: " + e)
+    rupture Rift "File not found: nonexistent_file.txt"
+}

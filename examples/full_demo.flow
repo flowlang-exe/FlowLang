@@ -1,0 +1,315 @@
+-- ═══════════════════════════════════════════════════════════════════════════
+-- FlowLang Full Demo Project: Notes API Server
+-- Demonstrates all std modules: web, json, file, path, url, time, timer,
+-- crypto, os, math, string, array, color, stream
+-- ═══════════════════════════════════════════════════════════════════════════
+
+circle web from "std:web"
+circle json from "std:json"
+circle fs from "std:file"
+circle path from "std:path"
+circle url from "std:url"
+circle time from "std:time"
+circle timer from "std:timer"
+circle crypto from "std:crypto"
+circle os from "std:os"
+circle color from "std:color"
+circle stream from "std:stream"
+circle arr from "std:array"
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- Type Definitions using sigil keyword
+-- ═══════════════════════════════════════════════════════════════════════════
+
+sigil Note {
+    id: Silk,
+    title: Silk,
+    content: Silk,
+    createdAt: Silk,
+    hash: Silk
+}
+
+sigil ServerConfig {
+    port: Ember,
+    dataFile: Silk
+}
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- Configuration & Data
+-- ═══════════════════════════════════════════════════════════════════════════
+
+let PORT: Ember = 3000
+let DATA_FILE: Silk = "notes.json"
+let requestCount: Ember = 0
+let startTime: Ember = time.timestamp()
+let notes: Constellation<Silk> = []
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- Utility Functions using std modules
+-- ═══════════════════════════════════════════════════════════════════════════
+
+-- Generate unique ID using crypto
+cast Spell generateId() -> Silk {
+    let timestamp: Ember = time.timestamp()
+    let hash: Silk = crypto.md5(timestamp + "-" + requestCount)
+    return hash
+}
+
+-- Load notes from file using std:file
+cast Spell loadNotes() -> Hollow {
+    in Stance (fs.exists(DATA_FILE)) {
+        attempt {
+            let content: Silk = fs.read(DATA_FILE)
+            notes = json.parse(content)
+            shout(color.green("✓ Loaded " + notes.len() + " notes from disk"))
+        } rescue Rift as e {
+            shout(color.yellow("⚠ Could not load notes: " + e))
+            notes = []
+        }
+    }
+}
+
+-- Save notes to file using std:file and std:json
+cast Spell saveNotes() -> Hollow {
+    attempt {
+        let content: Silk = json.stringify(notes)
+        fs.write(DATA_FILE, content)
+    } rescue Rift as e {
+        shout(color.red("✗ Failed to save: " + e))
+    }
+}
+
+-- Create note object with timestamp and hash
+cast Spell createNote(Silk title, Silk content) -> Relic<Silk, Flux> {
+    return {
+        "id": generateId(),
+        "title": title,
+        "content": content,
+        "createdAt": time.now(),
+        "hash": crypto.sha256(content)
+    }
+}
+
+-- Get uptime in seconds
+cast Spell getUptime() -> Ember {
+    let now: Ember = time.timestamp()
+    let uptime: Ember = now - startTime
+    return uptime
+}
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- Request Handler
+-- ═══════════════════════════════════════════════════════════════════════════
+
+cast Spell handler(req, res) {
+    requestCount = requestCount + 1
+    let method = req.method
+    let reqPath = req.pathname
+    
+    -- Log request with color
+    shout(color.cyan("→ ") + method + " " + reqPath + color.dimmed(" [#" + requestCount + "]"))
+    
+    -- ═════════════════════════════════════════════════════════════════════
+    -- GET / - Home page with server info
+    -- ═════════════════════════════════════════════════════════════════════
+    in Stance (reqPath is~ "/") {
+        let uptimeSec = getUptime()
+        
+        return res.html("
+            <h1>📝 FlowLang Notes API</h1>
+            <p>Server running on port " + PORT + "</p>
+            <p>Uptime: " + uptimeSec + " seconds</p>
+            <p>Total requests: " + requestCount + "</p>
+            <p>Platform: " + os.name() + " / " + os.arch() + "</p>
+            <hr>
+            <h3>Endpoints:</h3>
+            <ul>
+                <li>GET /api/notes - List all notes</li>
+                <li>POST /api/notes - Create note (body: {title, content})</li>
+                <li>GET /api/info - Server info</li>
+                <li>GET /api/stats - Request stats</li>
+                <li>GET /api/crypto-demo - Crypto demo</li>
+                <li>GET /api/debug - Full request debug</li>
+            </ul>
+        ")
+    }
+    
+    -- ═════════════════════════════════════════════════════════════════════
+    -- GET /api/notes - List all notes
+    -- ═════════════════════════════════════════════════════════════════════
+    in Stance (method is~ "GET") {
+        in Stance (reqPath is~ "/api/notes") {
+            return res.json(notes)
+        }
+    }
+    
+    -- ═════════════════════════════════════════════════════════════════════
+    -- POST /api/notes - Create a new note
+    -- ═════════════════════════════════════════════════════════════════════
+    in Stance (method is~ "POST") {
+        in Stance (reqPath is~ "/api/notes") {
+            attempt {
+                let body: Relic<Silk, Flux> = json.parse(req.body)
+                let title: Silk = body["title"]
+                let content: Silk = body["content"]
+                
+                -- Create note with generated ID and timestamp
+                let note = createNote(title, content)
+                
+                -- Add to array
+                notes = arr.push(notes, note)
+                
+                -- Save to disk
+                saveNotes()
+                
+                shout(color.green("  ✓ Created note: " + title))
+                return res.created(note)
+                
+            } rescue Rift as e {
+                return res.badRequest("Invalid JSON: " + e)
+            }
+        }
+    }
+    
+    -- ═════════════════════════════════════════════════════════════════════
+    -- GET /api/info - Server info using std:os and std:path
+    -- ═════════════════════════════════════════════════════════════════════
+    in Stance (reqPath is~ "/api/info") {
+        let cwd = os.cwd()
+        let homeDir = os.home_dir()
+        let dataPath = path.resolve(DATA_FILE)
+        let parsedPath = path.parse(dataPath)
+        
+        return res.json({
+            "Platform": os.name(),
+            "arch": os.arch(),
+            "cwd": cwd,
+            "homeDir": homeDir,
+            "dataFile": {
+                "path": dataPath,
+                "dir": parsedPath.dir,
+                "name": parsedPath.name,
+                "ext": parsedPath.ext
+            },
+            "pathSeparator": path.sep,
+            "pid": os.pid()
+        })
+    }
+    
+    -- ═════════════════════════════════════════════════════════════════════
+    -- GET /api/stats - Request statistics
+    -- ═════════════════════════════════════════════════════════════════════
+    in Stance (reqPath is~ "/api/stats") {
+        let uptimeSec = getUptime()
+        let reqPerSec = requestCount / uptimeSec
+        
+        return res.json({
+            "totalRequests": requestCount,
+            "uptimeSec": uptimeSec,
+            "requestsPerSecond": reqPerSec,
+            "notesCount": notes.len(),
+            "serverStartTime": startTime
+        })
+    }
+    
+    -- ═════════════════════════════════════════════════════════════════════
+    -- GET /api/url-test - URL parsing demo using std:url
+    -- ═════════════════════════════════════════════════════════════════════
+    in Stance (reqPath is~ "/api/url-test") {
+        let testUrl = "https://example.com:8080/path/to/resource?name=goku&power=9001"
+        let parsed = url.parse(testUrl)
+        
+        return res.json({
+            "originalUrl": testUrl,
+            "parsed": parsed,
+            "encodedExample": url.encode("hello world!"),
+            "decodedExample": url.decode("hello%20world%21")
+        })
+    }
+    
+    -- ═════════════════════════════════════════════════════════════════════
+    -- GET /api/crypto-demo - Crypto functions demo
+    -- ═════════════════════════════════════════════════════════════════════
+    in Stance (reqPath is~ "/api/crypto-demo") {
+        let text = "FlowLang is awesome!"
+        
+        return res.json({
+            "input": text,
+            "md5": crypto.md5(text),
+            "sha256": crypto.sha256(text),
+            "base64": crypto.base64_encode(text)
+        })
+    }
+    
+    -- ═════════════════════════════════════════════════════════════════════
+    -- GET /api/debug - Full request debug
+    -- ═════════════════════════════════════════════════════════════════════
+    in Stance (reqPath is~ "/api/debug") {
+        return res.json({
+            "method": req.method,
+            "pathname": req.pathname,
+            "path": req.path,
+            "url": req.url,
+            "host": req.host,
+            "ip": req.ip,
+            "protocol": req.protocol,
+            "query": req.query,
+            "headers": req.headers,
+            "cookies": req.cookies,
+            "body": req.body
+        })
+    }
+    
+    -- ═════════════════════════════════════════════════════════════════════
+    -- 404 - Not Found
+    -- ═════════════════════════════════════════════════════════════════════
+    return res.notFound("Route not found: " + method + " " + reqPath)
+}
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- Server Startup
+-- ═══════════════════════════════════════════════════════════════════════════
+
+shout("")
+shout(color.bold(color.cyan("═══════════════════════════════════════════════════")))
+shout(color.bold(color.cyan("  📝 FlowLang Notes API Server")))
+shout(color.bold(color.cyan("═══════════════════════════════════════════════════")))
+shout("")
+
+-- Show system info
+shout(color.dimmed("System: ") + os.name() + " " + os.arch())
+shout(color.dimmed("CWD: ") + os.cwd())
+shout(color.dimmed("PID: ") + os.pid())
+shout("")
+
+-- Load existing notes
+loadNotes()
+
+-- Show endpoints
+shout("")
+shout(color.yellow("📡 Endpoints:"))
+shout("   GET  /              → Homepage")
+shout("   GET  /api/notes     → List notes")
+shout("   POST /api/notes     → Create note")
+shout("   GET  /api/info      → Server info (os, path)")
+shout("   GET  /api/stats     → Request statistics")
+shout("   GET  /api/url-test  → URL parsing demo")
+shout("   GET  /api/crypto-demo → Crypto demo")
+shout("   GET  /api/debug     → Full request debug")
+shout("")
+
+-- Set up periodic stats timer
+cast Spell showStats() {
+    let uptime = getUptime()
+    shout(color.dimmed("📊 Stats: " + requestCount + " requests | " + uptime + "s uptime | " + notes.len() + " notes"))
+}
+
+-- Show stats every 30 seconds
+timer.interval(30000, showStats)
+
+-- Start server
+shout(color.green("🚀 Server starting on http://localhost:" + PORT))
+shout(color.dimmed("Press Ctrl+C to stop"))
+shout("")
+
+web.serve(PORT, handler)

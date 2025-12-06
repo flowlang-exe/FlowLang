@@ -1,0 +1,16 @@
+-- HTTP Server Example
+-- Server stays alive automatically - no wait needed!
+
+circle web from "std:web"
+
+shout("🌐 Starting HTTP Server on http://localhost:8080")
+shout("Press Ctrl+C to stop")
+shout("")
+
+-- Request handler - called for each request
+cast Spell handler(req) -> Hollow {
+    shout("📨 " + req.method + " " + req.path)
+}
+
+-- Start server - handle keeps process alive automatically
+web.serve(8080, handler)

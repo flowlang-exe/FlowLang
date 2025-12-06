@@ -1,0 +1,6 @@
+-- Episode 07: Out of Range
+
+shout("Accessing the void beyond the array...")
+
+let list = [1, 2, 3]
+shout(list[10])

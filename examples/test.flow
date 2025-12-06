@@ -1,0 +1,75 @@
+-- Testing various FlowLang features
+
+cast Spell test_arithmetic() -> Hollow {
+    shout("=== Testing Arithmetic ===")
+    
+    let a: Ember = 10
+    let b: Ember = 5
+    
+    shout("Addition: " + (a + b))
+    shout("Subtraction: " + (a - b))
+    shout("Multiplication: " + (a * b))
+    shout("Division: " + (a / b))
+    shout("Modulo: " + (a % b))
+}
+
+cast Spell test_comparison() -> Hollow {
+    shout("=== Testing Comparison ===")
+    
+    let x: Ember = 100
+    let y: Ember = 50
+    
+    in Stance (x >> y) {
+        shout("100 is greater than 50 ✓")
+    }
+    
+    in Stance (y << x) {
+        shout("50 is less than 100 ✓")
+    }
+}
+
+cast Spell test_loops() -> Hollow {
+    shout("=== Testing Loops ===")
+    
+    enter Phase i from 1 to 5 {
+        whisper("Loop iteration: " + i)
+    }
+}
+
+cast Spell test_pattern_matching() -> Hollow {
+    shout("=== Testing Pattern Matching ===")
+    
+    let status: Silk = "success"
+    
+    invoke Aura status {
+        when "success" -> roar("Operation succeeded!")
+        when "error" -> shout("Operation failed!")
+        otherwise -> whisper("Unknown status")
+    }
+}
+
+cast Spell greet(Silk name) -> Hollow {
+    shout("Greetings, " + name + "!")
+}
+
+cast Spell add(Ember x, Ember y) -> Ember {
+    return x + y
+}
+
+cast Spell test_functions() -> Hollow {
+    shout("=== Testing Functions ===")
+    
+    greet("Warrior")
+    
+    seal sum = add(42, 58)
+    shout("Sum: " + sum)
+}
+
+-- Run all tests
+test_arithmetic()
+test_comparison()
+test_loops()
+test_pattern_matching()
+test_functions()
+
+roar("✨ All tests completed! ✨")

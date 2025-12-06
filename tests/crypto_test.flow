@@ -1,0 +1,48 @@
+-- Crypto Module Test
+-- Tests std:crypto cryptography functions
+
+circle crypto from "std:crypto"
+circle color from "std:color"
+
+shout(color.cyan("=== Crypto Module Test ===\n"))
+
+-- Test 1: MD5 Hash
+shout(color.yellow("1. Testing MD5..."))
+let text = "Hello, FlowLang!"
+let md5Hash = crypto.md5(text)
+shout("  Text: " + text)
+shout("  MD5: " + md5Hash)
+shout(color.green("  ✓ MD5 works\n"))
+
+-- Test 2: SHA256 Hash
+shout(color.yellow("2. Testing SHA256..."))
+let sha256Hash = crypto.sha256(text)
+shout("  SHA256: " + sha256Hash)
+shout(color.green("  ✓ SHA256 works\n"))
+
+-- Test 3: SHA512 Hash
+shout(color.yellow("3. Testing SHA512..."))
+let sha512Hash = crypto.sha512(text)
+shout("  SHA512: " + sha512Hash)
+shout(color.green("  ✓ SHA512 works\n"))
+
+-- Test 4: Base64 Encoding
+shout(color.yellow("4. Testing Base64..."))
+let original = "Secret Message"
+let encoded = crypto.base64_encode(original)
+let decoded = crypto.base64_decode(encoded)
+shout("  Original: " + original)
+shout("  Encoded: " + encoded)
+shout("  Decoded: " + decoded)
+shout(color.green("  ✓ Base64 works\n"))
+
+-- Test 5: Hex Encoding
+shout(color.yellow("5. Testing Hex..."))
+let hexEncoded = crypto.hex_encode("ABC")
+let hexDecoded = crypto.hex_decode(hexEncoded)
+shout("  Original: ABC")
+shout("  Hex: " + hexEncoded)
+shout("  Decoded: " + hexDecoded)
+shout(color.green("  ✓ Hex works\n"))
+
+shout(color.bold(color.green("=== All Crypto Tests Passed ===")))

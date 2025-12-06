@@ -1,0 +1,11 @@
+-- ⚔️ COMPLETE ERROR ARC DEMONSTRATION ⚔️
+-- Testing all error handling features
+
+shout("=== COMPLETE ERROR ARC DEMO ===")
+shout("")
+
+-- Test 1: Rupture - Throwing specific error types
+shout("[1] Testing RUPTURE - Throwing Errors")
+whisper("Throwing a Rift error...")
+
+rupture Rift "Network connection severed"

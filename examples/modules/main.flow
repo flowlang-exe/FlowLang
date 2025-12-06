@@ -1,0 +1,25 @@
+-- Main Module for FlowLang
+
+circle math from "./math.flow"
+
+cast Spell main() -> Hollow {
+    shout("🔮 Testing Module System...")
+    
+    let a = 10
+    let b = 20
+    
+    let sum = math.add(a, b)
+    shout(a + " + " + b + " = " + sum)
+
+    let prod = math.multiply(a, b)
+    shout(a + " * " + b + " = " + prod)
+    shout("Value of PI: " + math.PI)
+
+    shout("⏳ Testing Async Module Call...")
+    let delayed_sum = await math.delay_add(50, 50)
+    shout("Delayed Sum: " + delayed_sum)
+    
+    shout("✨ Module System Verified!")
+}
+
+main()

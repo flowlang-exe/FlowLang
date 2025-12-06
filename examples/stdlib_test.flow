@@ -1,0 +1,43 @@
+circle math from "std:math"
+circle str from "std:string"
+circle arr from "std:array"
+
+cast Spell main() -> Hollow {
+    shout("🧪 Testing Standard Library Expansion...")
+
+    -- Math
+    shout("--- Math Module ---")
+    shout("PI: " + math.PI)
+    shout("sin(PI/2): " + math.sin(math.PI / 2.0))
+    shout("sqrt(16): " + math.sqrt(16.0))
+    shout("min(10, 20): " + math.min(10.0, 20.0))
+    shout("max(10, 20): " + math.max(10.0, 20.0))
+    shout("pow(2, 3): " + math.pow(2.0, 3.0))
+    
+    -- String
+    shout("--- String Module ---")
+    let s = "  FlowLang is Awesome!  "
+    shout("Original: '" + s + "'")
+    shout("Length: " + str.len(s))
+    shout("Trimmed: '" + str.trim(s) + "'")
+    shout("Upper: " + str.upper(s))
+    shout("Lower: " + str.lower(s))
+    shout("Contains 'Awesome': " + str.contains(s, "Awesome"))
+    
+    -- Array
+    shout("--- Array Module ---")
+    let list = [10, 20, 30]
+    shout("List: " + list)
+    shout("Length: " + arr.len(list))
+    shout("Contains 20: " + arr.contains(list, 20))
+    
+    let pushed = arr.push(list, 40)
+    shout("After push(40): " + pushed)
+    
+    let popped = arr.pop(pushed)
+    shout("After pop(): " + popped)
+    
+    shout("✨ Standard Library Verified! ✨")
+}
+
+main()

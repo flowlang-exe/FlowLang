@@ -1,0 +1,4 @@
+-- Test trace context for module errors
+circle error_test from "modules/error_test.flow"
+
+shout("If you see this, the error wasn't caught")

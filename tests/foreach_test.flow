@@ -1,0 +1,43 @@
+-- Test for-each loops in FlowLang
+
+shout("=== For-Each Loop Tests ===")
+
+-- Test 1: Simple array iteration
+shout("Test 1: Iterate over numbers")
+let numbers = [1, 2, 3, 4, 5]
+enter Phase num in numbers {
+    shout("Number: " + num)
+}
+
+shout("Test 2: Iterate over strings")
+let names = ["Goku", "Vegeta", "Gohan", "Piccolo"]
+enter Phase name in names {
+    shout("Hero: " + name)
+}
+
+shout("Test 3: For-each with break")
+let items = [10, 20, 30, 40, 50]
+enter Phase item in items {
+    in Stance (item >> 30) {
+        shout("Breaking at: " + item)
+        break seal
+    }
+    shout("Processing: " + item)
+}
+
+shout("Test 4: Nested for-each")
+let matrix = [[1, 2], [3, 4], [5, 6]]
+enter Phase row in matrix {
+    enter Phase cell in row {
+        shout("Cell: " + cell)
+    }
+}
+
+shout("Test 5: For-each with array methods")
+let data = [10, 20, 30]
+let newData = data.push(40)
+enter Phase d in newData {
+    shout("Data: " + d)
+}
+
+shout("All for-each tests passed!")

@@ -1,0 +1,8 @@
+-- Episode 3: THE UNBOUND VARIABLE (Undefined Variable)
+-- This should trigger an undefined variable error
+
+shout("Testing undefined variable...")
+
+-- x is not defined
+let result = x + 10
+shout("Result: " + result)

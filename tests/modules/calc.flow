@@ -1,0 +1,25 @@
+-- Test module for selective imports
+-- This module has various exported members
+
+@export cast Spell add(a, b) {
+    return a + b
+}
+
+@export cast Spell subtract(a, b) {
+    return a - b
+}
+
+@export cast Spell multiply(a, b) {
+    return a * b
+}
+
+-- Private function (not exported)
+cast Spell divide(a, b) {
+    return a / b
+}
+
+@export seal PI = 3.14159
+@export seal E = 2.71828
+
+-- Private constant
+seal INTERNAL_CONSTANT = "This is private"

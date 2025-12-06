@@ -1,0 +1,7 @@
+-- Test module alias for stdlib  
+-- Correct syntax: from BEFORE as
+circle color from "std:color" as c
+
+shout("Testing alias...")
+shout(c.red("Red text with alias"))
+shout("✅ Alias works!")

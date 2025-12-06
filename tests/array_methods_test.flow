@@ -1,0 +1,48 @@
+-- Array Methods Test
+-- Tests new array method syntax
+
+circle color from "std:color"
+
+shout(color.cyan("=== Array Methods Test ===\n"))
+
+-- Test 1: len()
+shout(color.yellow("1. Testing len()..."))
+let arr = [1, 2, 3, 4, 5]
+let length = arr.len()
+shout("  Array: " + arr)
+shout("  Length: " + length)
+shout(color.green("  ✓ len() works\n"))
+
+-- Test 2: push()
+shout(color.yellow("2. Testing push()..."))
+let arr2 = [1, 2, 3]
+let arr3 = arr2.push(4)
+shout("  Original: " + arr2)
+shout("  After push(4): " + arr3)
+shout(color.green("  ✓ push() works\n"))
+
+-- Test 3: pop()
+shout(color.yellow("3. Testing pop()..."))
+let arr4 = [10, 20, 30]
+let last = arr4.pop()
+shout("  Array: " + arr4)
+shout("  Popped value: " + last)
+shout(color.green("  ✓ pop() works\n"))
+
+-- Test 4: slice()
+shout(color.yellow("4. Testing slice()..."))
+let arr5 = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+let sliced = arr5.slice(2, 7)
+shout("  Original: " + arr5)
+shout("  Sliced [2:7]: " + sliced)
+shout(color.green("  ✓ slice() works\n"))
+
+-- Test 5: Method chaining
+shout(color.yellow("5. Testing method chaining..."))
+let arr6 = [1, 2, 3]
+let result = arr6.push(4).push(5)
+shout("  Start: [1, 2, 3]")
+shout("  After .push(4).push(5): " + result)
+shout(color.green("  ✓ Method chaining works\n"))
+
+shout(color.bold(color.green("=== All Array Method Tests Passed ===")))

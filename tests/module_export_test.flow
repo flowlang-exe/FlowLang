@@ -1,0 +1,17 @@
+-- Main test file to test module exports
+circle math_utils from "modules/math_utils.flow"
+
+-- Test accessing exported members
+shout(math_utils.publicData)
+shout(math_utils.API_VERSION)
+math_utils.publicGreet("FlowLang")
+
+-- Test calling exported ritual
+perform math_utils.fetchData()
+
+-- Try to access private members (should fail or be undefined)
+-- Uncomment to test error handling:
+-- shout(math_utils.privateData)  -- Should not be accessible
+-- math_utils.privateHelper()    -- Should not be accessible
+
+shout("✅ Module export test completed")

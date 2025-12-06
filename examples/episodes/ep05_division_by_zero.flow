@@ -1,0 +1,10 @@
+-- Episode 5: DIVISION OF FATE (Division by Zero)
+-- This should trigger division by zero error
+
+shout("Calculating dangerous division...")
+
+let numerator = 42
+let denominator = 0
+
+let result = numerator / denominator
+shout("Result: " + result)

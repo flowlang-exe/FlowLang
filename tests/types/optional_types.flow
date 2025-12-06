@@ -1,0 +1,12 @@
+-- This test verifies that type checking happens if annotations are present,
+-- even if strict mode is NOT enabled.
+
+cast Spell add(Ember a, Ember b) -> Ember {
+    return a + b
+}
+
+shout("Testing valid call...")
+shout(add(10, 20))
+
+shout("Testing invalid call (should fail)...")
+shout(add(10, "20"))

@@ -1,0 +1,30 @@
+-- CLI Module Test
+-- Tests the std:cli module functions
+
+circle cli from "std:cli"
+
+shout("=== CLI Module Test ===")
+
+-- Test 1: Input
+shout("\nTest 1: Input")
+let name = cli.input("Enter your name: ")
+shout("Hello, " + name + "!")
+
+-- Test 2: Args
+shout("\nTest 2: Command-line arguments")
+let args = cli.args()
+shout("Arguments received!")
+
+-- Test 3: Confirm
+shout("\nTest 3: Confirm")
+let proceed = cli.confirm("Do you want to continue? (y/n): ")
+in Stance (proceed) {
+    shout("You chose YES!")
+}
+
+-- Test 4: Select
+shout("\nTest 4: Select")
+let choice = cli.select("Choose your favorite:", ["FlowLang", "Rust", "Python"])
+shout("You selected: " + choice)
+
+shout("\n=== All tests complete! ===")

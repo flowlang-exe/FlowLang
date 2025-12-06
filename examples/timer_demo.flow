@@ -1,0 +1,30 @@
+-- Timer Demo for FlowLang Event Loop
+-- This demonstrates how timer.interval keeps the process alive
+
+circle timer from "std:timer"
+
+shout("🔄 Timer Demo - Event Loop Test")
+shout("This will demonstrate the timer keeping the process alive")
+shout("")
+
+-- Define callback first
+cast Spell tick() -> Hollow {
+    shout("Tick!")
+}
+
+-- Create an interval that ticks every second
+shout("Starting timer with 1 second interval...")
+let handle = timer.interval(1000, tick)
+
+shout("Timer started with handle: " + handle)
+shout("Waiting 3 seconds...")
+
+-- Wait 3 seconds
+wait 3s
+
+shout("")
+shout("Clearing timer...")
+let cleared = timer.clear(handle)
+shout("Timer cleared: " + cleared)
+
+shout("✨ Done! Process should exit now")

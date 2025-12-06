@@ -1,0 +1,58 @@
+-- Test variable reassignment and is~ operator
+
+shout("=== Testing Variable Reassignment ===")
+
+-- Test 1: Simple reassignment
+let counter = 0
+shout("Initial counter: " + counter)
+counter = 5
+shout("After assignment: " + counter)
+counter = counter + 10
+shout("After increment: " + counter)
+
+-- Test 2: Reassignment in loop
+let sum = 0
+let numbers = [1, 2, 3, 4, 5]
+enter Phase num in numbers {
+    sum = sum + num
+    shout("Sum so far: " + sum)
+}
+shout("Final sum: " + sum)
+
+-- Test 3: Sealed variables cannot be reassigned
+seal maxPower = 9000
+shout("Max power: " + maxPower)
+-- maxPower = 10000  -- This would error!
+
+shout("\n=== Testing is~ Operator ===")
+
+-- Test 4: Equality checks
+let value1 = 42
+let value2 = 42
+let value3 = 100
+
+in Stance (value1 is~ value2) {
+    shout("42 is~ 42: true")
+}
+
+in Stance (value1 is~ value3) {
+    shout("This should not print")
+} abandon Stance {
+    shout("42 is~ 100: false")
+}
+
+-- Test 5: not~ operator
+in Stance (value1 not~ value3) {
+    shout("42 not~ 100: true")
+}
+
+-- Test 6: Using is~ in for-each
+let items = [1, 2, 3, 2, 4]
+shout("\nFinding all occurrences of 2:")
+enter Phase item in items {
+    in Stance (item is~ 2) {
+        shout("Found: " + item)
+    }
+}
+
+shout("\n✅ All tests passed!")

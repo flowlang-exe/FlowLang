@@ -1,0 +1,36 @@
+-- ⚔️ ULTIMATE ERROR ARC TEST ⚔️
+-- Demonstrating ALL error types with epic messages
+
+shout("=== ULTIMATE ERROR ARC TEST ===")
+shout("")
+
+-- Choose which error to test by uncommenting ONE line below:
+
+-- Test 1: Wound (Soft Error - Non-Fatal)
+shout("[Test 1] Wound - Soft Error")
+wound "Minor disturbance in the flow"
+wound "Energy levels fluctuating"
+whisper("✓ Execution continues after wounds")
+shout("")
+
+-- Test 2: Panic (Catastrophic Failure)
+-- shout("[Test 2] Panic - Catastrophic Failure")
+-- panic "MANA CORE OVERLOAD! Reality is collapsing!"
+
+-- Test 3: Rift (Network/IO Error)
+-- shout("[Test 3] Rift - Network Error")
+-- rupture Rift "The dimensional link has been severed!"
+
+-- Test 4: Glitch (Parse/Format Error)
+-- shout("[Test 4] Glitch - Data Corruption")
+-- rupture Glitch "The data stream has been corrupted!"
+
+-- Test 5: VoidTear (Null/Empty Access)
+-- shout("[Test 5] VoidTear - Void Access")
+-- rupture VoidTear "You've gazed into the empty void!"
+
+-- Test 6: Spirit (Generic Error)
+shout("[Test 6] Spirit - Generic Error")
+rupture Spirit "A disturbance in the flow has been detected!"
+
+chant("✅ Test completed successfully!")

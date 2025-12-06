@@ -1,0 +1,87 @@
+-- FlowLang std:path Module Test
+-- Tests all path manipulation functions
+
+circle path from "std:path"
+
+shout("🔧 std:path Module Test")
+shout("═══════════════════════")
+shout("")
+
+-- Test path.sep
+shout("📁 path.sep: " + path.sep)
+shout("")
+
+-- Test path.join
+shout("📍 path.join:")
+let joined = path.join("home", "user", "documents", "file.txt")
+shout("   join('home','user','documents','file.txt') = " + joined)
+shout("")
+
+-- Test path.dirname
+shout("📂 path.dirname:")
+let dir = path.dirname("/home/user/file.txt")
+shout("   dirname('/home/user/file.txt') = " + dir)
+shout("")
+
+-- Test path.basename
+shout("📄 path.basename:")
+let base1 = path.basename("/home/user/file.txt")
+let base2 = path.basename("/home/user/file.txt", ".txt")
+shout("   basename('/home/user/file.txt') = " + base1)
+shout("   basename('/home/user/file.txt', '.txt') = " + base2)
+shout("")
+
+-- Test path.extname
+shout("🏷️  path.extname:")
+let ext1 = path.extname("myfile.json")
+let ext2 = path.extname("archive.tar.gz")
+let ext3 = path.extname("noext")
+shout("   extname('myfile.json') = " + ext1)
+shout("   extname('archive.tar.gz') = " + ext2)
+shout("   extname('noext') = '" + ext3 + "'")
+shout("")
+
+-- Test path.parse
+shout("📊 path.parse:")
+let parsed = path.parse("/home/user/docs/readme.md")
+shout("   parse('/home/user/docs/readme.md'):")
+shout("      root = " + parsed.root)
+shout("      dir  = " + parsed.dir)
+shout("      base = " + parsed.base)
+shout("      ext  = " + parsed.ext)
+shout("      name = " + parsed.name)
+shout("")
+
+-- Test path.format
+shout("🔨 path.format:")
+let formatted = path.format({"dir": "/home/user", "base": "test.js"})
+shout("   format({dir:'/home/user', base:'test.js'}) = " + formatted)
+shout("")
+
+-- Test path.resolve
+shout("🎯 path.resolve:")
+let resolved = path.resolve("src", "lib")
+shout("   resolve('src', 'lib') = " + resolved)
+shout("")
+
+-- Test path.normalize
+shout("✨ path.normalize:")
+let normalized = path.normalize("home/user/../user/./docs")
+shout("   normalize('home/user/../user/./docs') = " + normalized)
+shout("")
+
+-- Test path.isAbsolute
+shout("🔍 path.isAbsolute:")
+let isAbs1 = path.isAbsolute("/home/user")
+let isAbs2 = path.isAbsolute("./relative")
+shout("   isAbsolute('/home/user') = " + isAbs1)
+shout("   isAbsolute('./relative') = " + isAbs2)
+shout("")
+
+-- Test path.relative
+shout("↔️  path.relative:")
+let rel = path.relative("/home/user", "/home/user/docs/file.txt")
+shout("   relative('/home/user', '/home/user/docs/file.txt') = " + rel)
+shout("")
+
+shout("✅ All tests complete!")

@@ -1,0 +1,33 @@
+-- color Module Demo
+-- Demonstrates std:color module (like chalk)
+
+circle color from "std:color"
+
+shout("=== color Module Demo ===\n")
+
+-- Basic colors
+shout(color.red("This is red text"))
+shout(color.green("This is green text"))
+shout(color.blue("This is blue text"))
+shout(color.yellow("This is yellow text"))
+shout(color.magenta("This is magenta text"))
+shout(color.cyan("This is cyan text"))
+
+shout("\n--- Bright cs ---")
+shout(color.bright_red("Bright red"))
+shout(color.bright_green("Bright green"))
+shout(color.bright_blue("Bright blue"))
+shout(color.bright_yellow("Bright yellow"))
+
+shout("\n--- Text Styles ---")
+shout(color.bold("Bold text"))
+shout(color.italic("Italic text"))
+shout(color.underline("Underlined text"))
+shout(color.dimmed("Dimmed text"))
+shout(color.strikethrough("Strikethrough text"))
+
+shout("\n--- Combined (nested) ---")
+shout(color.bold(color.red("Bold Red")))
+shout(color.underline(color.cyan("Underlined Cyan")))
+
+shout("\n=== Demo Complete! ===")

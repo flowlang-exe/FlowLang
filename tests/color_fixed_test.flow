@@ -1,0 +1,13 @@
+-- color Module Demo (FIXED)
+-- Demonstrates std:color module
+
+circle color as c from "std:color"
+
+shout("=== color Module Demo ===\n")
+
+-- Basic colors
+shout(c.red("This is red text"))
+shout(c.green("This is green text"))
+shout(c.blue("This is blue text"))
+
+shout("\n✅ Color module works!")

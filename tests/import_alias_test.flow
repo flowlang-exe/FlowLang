@@ -1,0 +1,14 @@
+-- Test selective imports with aliases
+-- Syntax: circle {member as alias} from "path"
+circle {add as sum, subtract as diff, PI as pi} from "modules/calc.flow"
+
+shout("Testing import aliases:")
+shout("sum(100, 25) = " + sum(100, 25))
+shout("diff(100, 25) = " + diff(100, 25))
+shout("pi = " + pi)
+
+-- Original names are NOT available:
+-- add(1, 2)  -- Error: undefined
+-- PI         -- Error: undefined
+
+shout("✅ Import alias test passed!")

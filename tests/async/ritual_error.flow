@@ -1,0 +1,30 @@
+-- Ritual Error Handling Test
+-- Tests that errors in rituals are caught and displayed
+
+ritual riskyOperation ::
+    shout("Starting risky operation...")
+    wait 500ms
+    rupture Rift "Connection to the void failed!"
+end
+
+ritual safeOperation ::
+    shout("Starting safe operation...")
+    wait 500ms
+    return "Success!"
+end
+
+-- Test error handling
+shout("Testing ritual error handling...")
+
+attempt {
+    let result = await riskyOperation()
+    shout("This should not print")
+} rescue Rift as e {
+    shout("Caught error in ritual: " + e)
+}
+
+-- Test successful ritual after error
+let success = await safeOperation()
+shout("Safe operation result: " + success)
+
+shout("Error handling test complete!")

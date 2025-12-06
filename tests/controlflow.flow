@@ -1,0 +1,24 @@
+-- Demonstrating control flow
+
+@experimental
+cast Spell demo() -> Hollow {
+    let power: Ember = 9200
+    
+    in Stance (power >> 9000) {
+        roar("It's… OVER 9000!!!")
+    }
+    
+    enter Phase i from 1 to 5 {
+        chant("Charging… " + i)
+    }
+    
+    let mood: Silk = "angry"
+    
+    invoke Aura mood {
+        when "calm" -> whisper("Peaceful aura detected.")
+        when "angry" -> shout("Hostile spirit unleashed!")
+        otherwise -> whisper("Mystery emotion…")
+    }
+}
+
+demo()

@@ -1,0 +1,7 @@
+target
+.flowlang
+node_modules
+notes.json
+.git
+.vscode
+out

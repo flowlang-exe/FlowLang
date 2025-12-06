@@ -1,0 +1,117 @@
+-- FlowLang Complete REST API Example
+-- Demonstrates all req/res features
+
+circle web from "std:web"
+
+shout("🚀 FlowLang Complete REST API")
+shout("══════════════════════════════")
+shout("")
+
+-- In-memory data
+let users = [
+    {"id": 1, "name": "Goku", "power": 9001},
+    {"id": 2, "name": "Vegeta", "power": 8500}
+]
+
+-- Express-style handler with full req/res
+cast Spell handler(req, res) {
+    let path = req.pathname
+    let method = req.method
+    
+    shout("📨 " + method + " " + path + " from " + req.ip)
+    
+    -- GET / - Homepage
+    in Stance (path is~ "/") {
+        return res.html("<h1>🎉 FlowLang REST API</h1><p>Visit /api/debug to see all request info</p>")
+    }
+    
+    -- GET /api/users - List users
+    in Stance (path is~ "/api/users") {
+        return res.json(users)
+    }
+    
+    -- GET /api/debug - Show all request info
+    in Stance (path is~ "/api/debug") {
+        return res.json({
+            "method": req.method,
+            "pathname": req.pathname,
+            "path": req.path,
+            "url": req.url,
+            "host": req.host,
+            "ip": req.ip,
+            "protocol": req.protocol,
+            "query": req.query,
+            "headers": req.headers,
+            "cookies": req.cookies,
+            "body": req.body
+        })
+    }
+    
+    -- GET /api/created - 201 response
+    in Stance (path is~ "/api/created") {
+        return res.created({"id": 3, "name": "Piccolo"})
+    }
+    
+    -- GET /api/no-content - 204 response
+    in Stance (path is~ "/api/no-content") {
+        return res.noContent()
+    }
+    
+    -- GET /api/unauthorized - 401 response
+    in Stance (path is~ "/api/unauthorized") {
+        return res.unauthorized("Please login first")
+    }
+    
+    -- GET /api/forbidden - 403 response
+    in Stance (path is~ "/api/forbidden") {
+        return res.forbidden("Access denied")
+    }
+    
+    -- GET /api/send - Auto-detect
+    in Stance (path is~ "/api/send") {
+        return res.send({"auto": "detected", "type": "json"})
+    }
+    
+    -- GET /api/file - Serve a file
+    in Stance (path is~ "/api/file") {
+        return res.file("./README.md")
+    }
+    
+    -- GET /api/header - Custom header response
+    in Stance (path is~ "/api/header") {
+        return res.header("X-Custom-Header", "FlowLang-Powered")
+    }
+    
+    -- GET /api/headers-test - Show specific header access
+    in Stance (path is~ "/api/headers-test") {
+        let userAgent = req.headers["user-agent"]
+        let host = req.headers["host"]
+        return res.json({
+            "your-user-agent": userAgent,
+            "host-header": host
+        })
+    }
+    
+    -- 404 for unknown routes
+    return res.notFound("Route not found: " + path)
+}
+
+shout("🌐 Server: http://localhost:3000")
+shout("")
+shout("📡 Endpoints:")
+shout("   /              → HTML homepage")
+shout("   /api/users     → JSON users")
+shout("   /api/debug     → Full request debug info")
+shout("   /api/created   → 201 Created")
+shout("   /api/no-content → 204 No Content")
+shout("   /api/unauthorized → 401")
+shout("   /api/forbidden → 403")
+shout("   /api/send      → Auto-detect response")
+shout("   /api/file      → Serve README.md")
+shout("   /api/header    → Custom header")
+shout("   /api/headers-test → Show request headers")
+shout("")
+shout("Press Ctrl+C to stop")
+shout("")
+
+web.serve(3000, handler)

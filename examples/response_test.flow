@@ -1,0 +1,51 @@
+-- Response Control Test
+-- Handler returns value that becomes HTTP response
+
+circle web from "std:web"
+circle url from "std:url"
+circle json from "std:json"
+
+shout("🚀 Response Control Test")
+shout("━━━━━━━━━━━━━━━━━━━━━━━━")
+shout("")
+
+-- Handler that returns different responses
+cast Spell handler(req) {
+    let parsed = url.parse("http://localhost" + req.path)
+    let path = parsed.pathname
+    
+    shout("📨 " + req.method + " " + path)
+    
+    -- Return different responses based on route
+    in Stance (path is~ "/") {
+        return {"status": 200, "body": "Welcome to FlowLang!"}
+    }
+    
+    in Stance (path is~ "/api/users") {
+        let users = [
+            {"id": 1, "name": "Goku"},
+            {"id": 2, "name": "Vegeta"}
+        ]
+        return {"status": 200, "body": json.stringify(users)}
+    }
+    
+    in Stance (path is~ "/api/health") {
+        return {"status": 200, "body": json.stringify({"status": "ok"})}
+    }
+    
+    -- 404 for unknown routes
+    return {"status": 404, "body": "Not Found"}
+}
+
+shout("🌐 Server: http://localhost:3000")
+shout("")
+shout("Try these endpoints:")
+shout("  GET /           -> Welcome message")
+shout("  GET /api/users  -> JSON user list")  
+shout("  GET /api/health -> Health check")
+shout("  GET /anything   -> 404 Not Found")
+shout("")
+shout("Press Ctrl+C to stop")
+shout("")
+
+web.serve(3000, handler)

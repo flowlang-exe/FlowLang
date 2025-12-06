@@ -1,0 +1,23 @@
+cast Spell privateHelper() {
+    shout("This is a private helper function")
+}
+
+@export cast Spell publicGreet(name) {
+    shout("Hello, " + name + "! This is a public function.")
+}
+
+let privateData = "This is private data"
+
+@export let publicData = "This is public data"
+
+@export seal API_VERSION = "1.0.0"
+
+let num: Silk = "hello"
+
+seal INTERNAL_KEY = "secret123"
+
+@export ritual fetchData() ::
+    wait 100 ms
+    shout("Fetching data...")
+    return "Data loaded"
+end

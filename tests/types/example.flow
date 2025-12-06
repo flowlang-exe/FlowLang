@@ -1,0 +1,5 @@
+cast Spell greet(Silk name, Ember age) -> Silk {
+    shout("Hello " + name + " You are " + age + " years old")
+}
+
+greet("World", 25)

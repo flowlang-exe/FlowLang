@@ -1,0 +1,12 @@
+let name: Silk = "World"
+let age: Ember = 25
+
+-- Template literals with interpolation
+shout(`Hello ${name}!`)
+shout(`Age: ${age}`)
+
+-- Multiline template literal
+let multiline: Silk = `This is
+a multiline
+template literal`
+shout(multiline)

@@ -1,0 +1,5 @@
+-- Module with intentional error for testing trace
+@export let validData = "This works"
+
+-- This will cause a type error
+let num: Silk = 42

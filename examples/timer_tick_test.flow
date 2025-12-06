@@ -1,0 +1,24 @@
+-- Timer Tick Test
+circle timer from "std:timer"
+
+shout("Starting timer test...")
+
+-- Counter to track ticks
+let count = 0
+
+cast Spell tick() -> Hollow {
+    count = count + 1
+    shout("🔔 Tick #" + count)
+}
+
+shout("Creating 500ms interval...")
+let handle = timer.interval(500, tick)
+
+shout("Waiting 3 seconds for ticks...")
+wait 3s
+
+shout("Clearing timer")
+timer.clear(handle)
+
+shout("Final count: " + count)
+shout("Done!")

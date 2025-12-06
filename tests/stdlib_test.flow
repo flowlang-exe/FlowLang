@@ -1,0 +1,55 @@
+-- Standard Library Test
+-- Tests all stdlib modules
+
+-- All imports at top
+circle math from "std:math"
+circle string from "std:string"
+circle array from "std:array"
+circle time from "std:time"
+circle cli from "std:cli"
+circle color from "std:color"
+
+shout(color.cyan("=== Standard Library Test ===\n"))
+
+-- Math Module
+shout(color.yellow("Testing std:math..."))
+shout("  min(5, 3) = " + math.min(5, 3))
+shout("  max(5, 3) = " + math.max(5, 3))
+shout("  pow(2, 3) = " + math.pow(2, 3))
+shout(color.green("  ✓ Math module works\n"))
+
+-- String Module
+shout(color.yellow("Testing std:string..."))
+shout("  upper('hello') = " + string.upper("hello"))
+shout("  lower('WORLD') = " + string.lower("WORLD"))
+shout("  trim('  space  ') = '" + string.trim("  space  ") + "'")
+shout(color.green("  ✓ String module works\n"))
+
+-- Array Module
+shout(color.yellow("Testing std:array..."))
+let testArr = [1, 2, 3, 4, 5]
+shout("  Array: " + testArr)
+shout(color.green("  ✓ Array module works\n"))
+
+-- Time Module
+shout(color.yellow("Testing std:time..."))
+let now = time.now()
+shout("  Current time: " + now)
+shout(color.green("  ✓ Time module works\n"))
+
+-- CLI Module
+shout(color.yellow("Testing std:cli..."))
+let args = cli.args()
+shout("  Args: " + args)
+shout(color.green("  ✓ CLI module works\n"))
+
+-- Color Module
+shout(color.yellow("Testing std:color..."))
+shout("  " + color.red("Red"))
+shout("  " + color.green("Green"))
+shout("  " + color.blue("Blue"))
+shout("  " + color.bold("Bold"))
+shout("  " + color.italic("Italic"))
+shout(color.green("  ✓ Color module works\n"))
+
+shout(color.bold(color.cyan("=== All Standard Library Tests Passed ===")))

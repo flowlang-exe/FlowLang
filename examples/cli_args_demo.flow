@@ -1,0 +1,16 @@
+-- CLI Args Demo
+-- Demonstrates cli.args() with command-line arguments
+
+circle cli from "std:cli"
+
+shout("=== CLI Args Demo ===")
+
+let args = cli.args()
+shout(args)
+shout("Received arguments!")
+
+-- Note: We can't easily iterate or get length without array stdlib functions
+-- So we'll just try to access first few args
+
+shout("\nTry running:")
+shout("  flowlang run examples/cli_args_demo.flow hello world test")

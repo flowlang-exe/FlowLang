@@ -1,0 +1,26 @@
+-- Basic Ritual Test
+-- Tests that rituals can be defined and awaited
+
+ritual greet(name) ::
+    shout("Hello, " + name + "!")
+    wait 500ms
+    shout("Nice to meet you!")
+    return "Greeting complete"
+end
+
+ritual fetchData ::
+    shout("Fetching data...")
+    wait 1s
+    return "Data loaded"
+end
+
+-- Test basic ritual call
+shout("Starting ritual test...")
+let result = await greet("FlowLang")
+shout("Result: " + result)
+
+-- Test another ritual
+let data = await fetchData()
+shout("Data: " + data)
+
+shout("All rituals completed!")

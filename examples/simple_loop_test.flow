@@ -1,0 +1,8 @@
+-- Simple Loop Test
+shout("=== SIMPLE LOOP TEST ===")
+
+enter Phase i from 1 to 5 {
+    shout("Count: " + i)
+}
+
+shout("Loop completed!")

@@ -1,0 +1,28 @@
+-- Control Flow Test
+-- Testing break seal and fracture seal
+
+shout("=== CONTROL FLOW TEST ===")
+
+shout("\n[1] Testing break seal (break)")
+shout("Counting to 10, but breaking at 5...")
+
+enter Phase i from 1 to 10 {
+    in Stance (i  >> 5) {
+        shout("Breaking at " + i)
+        break seal
+    }
+    shout("Count: " + i)
+}
+
+shout("\n[2] Testing nested loops with break")
+enter Phase i from 1 to 3 {
+    shout("Outer: " + i)
+    enter Phase j from 1 to 3 {
+        in Stance (j >> 1) {
+            break seal
+        }
+        shout("  Inner: " + j)
+    }
+}
+
+shout("\nTest completed!")

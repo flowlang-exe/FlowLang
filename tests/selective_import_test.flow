@@ -1,0 +1,12 @@
+-- Test selective imports with specific members
+-- Syntax: circle {member1, member2} from "path"
+circle {add, PI} from "modules/calc.flow"
+
+shout("Testing selective imports:")
+shout("add(10, 5) = " + add(10, 5))
+shout("PI = " + PI)
+
+-- multiply is NOT imported, so this would error:
+-- shout(multiply(2, 3))  -- Error: undefined
+
+shout("✅ Selective import test passed!")

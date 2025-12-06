@@ -1,0 +1,32 @@
+-- Async/Await Example in FlowLang
+
+ritual loadData ::
+    shout("⏳ Loading data...")
+    wait 1s
+    shout("✅ Data loaded!")
+    return "user_data"
+end
+
+ritual fetchConfig ::
+    shout("⏳ Fetching config...")
+    wait 500ms
+    shout("✅ Config fetched!")
+    return "config_data"
+end
+
+cast Spell main() -> Hollow {
+    shout("🚀 Starting async operations...")
+    
+    -- Sequential await
+    shout("--- Sequential Execution ---")
+    let data = await loadData()
+    shout("Got: " + data)
+    
+    -- Parallel execution
+    shout("--- Parallel Execution ---")
+    perform loadData(), fetchConfig()
+    
+    shout("✨ All done!")
+}
+
+main()

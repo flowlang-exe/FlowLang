@@ -1,0 +1,18 @@
+-- Math Module for FlowLang
+@export
+cast Spell add(Ember a, Ember b) -> Ember {
+    return a + b
+}
+@export
+cast Spell multiply(Ember a, Ember b) -> Ember {
+    return a * b
+}
+@export
+seal PI = 3.14159
+seal E = 2.71828
+
+@export
+ritual delay_add(Ember a, Ember b) ::
+    wait 500ms
+    return a + b
+end

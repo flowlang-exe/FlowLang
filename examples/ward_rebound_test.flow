@@ -1,0 +1,32 @@
+-- Ward and Rebound Test
+-- Testing error containment and rethrowing
+
+shout("=== WARD & REBOUND TEST ===")
+
+shout("\n[1] Testing Ward (Error Containment)")
+shout("Attempting dangerous magic inside a Ward...")
+
+ward {
+    shout("  Inside Ward: Casting spell...")
+    rupture VoidTear "This error should be absorbed by the Ward!"
+    shout("  This line should NOT be reached")
+}
+
+shout("Outside Ward: The flow continues unharmed!")
+
+shout("\n[2] Testing Rebound (Rethrow)")
+shout("Catching an error and rebounding it...")
+
+attempt {
+    attempt {
+        rupture Glitch "Original Error"
+    } rescue Glitch as g {
+        shout("  Caught inner error: " + g)
+        shout("  Rebounding...")
+        rebound g
+    }
+} rescue Spirit as s {
+    shout("Caught rebounded error: " + s)
+}
+
+shout("\nTest completed!")

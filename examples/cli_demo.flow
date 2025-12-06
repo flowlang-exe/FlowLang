@@ -1,0 +1,26 @@
+-- Simple CLI Demo
+-- Demonstrates std:cli module (non-interactive parts)
+
+circle cli from "std:cli"
+
+shout("=== CLI Module Demo ===")
+
+-- Test 1: Get command-line arguments
+shout("\n1. Command-line Arguments:")
+let args = cli.args()
+shout(args)
+shout("Arguments received (run with: flowlang run cli_demo.flow arg1 arg2)")
+
+-- Test 2: Clear screen (commented to preserve output)
+-- shout("\n2. Clear Screen:")
+-- cli.clear()
+
+shout("\n=== Interactive Functions Available ===")
+shout("- cli.input(prompt) - Read user input")
+shout("- cli.confirm(prompt) - Yes/no question")
+shout("- cli.select(prompt, options) - Menu selection")
+shout("- cli.clear() - Clear terminal")
+shout("- cli.exit(code) - Exit program")
+
+shout("\nFor interactive testing, see: tests/stdlib/cli_test.flow")
+shout("Demo complete!")

@@ -1,0 +1,32 @@
+-- Perform Statement Test
+-- Tests sequential execution of multiple rituals
+-- NOTE: perform is currently SEQUENTIAL, not parallel
+
+ritual task1 ::
+    shout("Task 1 starting...")
+    wait 500ms
+    shout("Task 1 complete!")
+    return "Result 1"
+end
+
+ritual task2 ::
+    shout("Task 2 starting...")
+    wait 500ms
+    shout("Task 2 complete!")
+    return "Result 2"
+end
+
+ritual task3 ::
+    shout("Task 3 starting...")
+    wait 500ms
+    shout("Task 3 complete!")
+    return "Result 3"
+end
+
+shout("Starting perform test...")
+shout("NOTE: These will execute SEQUENTIALLY, not in parallel")
+
+-- Execute all rituals with perform
+perform task1(), task2(), task3()
+
+shout("All tasks completed!")

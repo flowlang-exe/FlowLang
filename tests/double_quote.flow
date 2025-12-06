@@ -1,0 +1,6 @@
+let literal: Silk = "This ${should} be literal"
+shout(literal)
+
+let name: Silk = "World"
+let noInterpolation: Silk = "Hello ${name}"
+shout(noInterpolation)

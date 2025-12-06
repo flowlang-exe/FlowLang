@@ -1,0 +1,33 @@
+-- Comprehensive FlowLang Sample Program
+-- Demonstrates all major features
+
+@experimental
+cast Spell main() -> Hollow {
+    
+    let power: Ember = 9200
+    
+    in Stance (power >> 9000) {
+        roar("It's… OVER 9000!!!")
+    }
+    
+    enter Phase i from 1 to 3 {
+        chant("Charging… " + i)
+    }
+    
+    let mood: Silk = "angry"
+    
+    invoke Aura mood {
+        when "calm" -> whisper("Peaceful aura detected.")
+        when "angry" -> shout("Hostile spirit unleashed!")
+        otherwise -> whisper("Mystery emotion…")
+    }
+    
+    seal result = multiply(8, 9)
+    shout("Result: " + result)
+}
+
+cast Spell multiply(Ember a, Ember b) -> Ember {
+    return a * b
+}
+
+main()

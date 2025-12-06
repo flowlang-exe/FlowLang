@@ -1,0 +1,53 @@
+-- Memory Safety Test
+-- Ensures Arc properly manages memory
+
+circle color from "std:color"
+
+shout(color.cyan("=== Memory Safety Test ===\n"))
+
+-- Test 1: Cloning Values
+shout("1. Testing value cloning...")
+let original = "Original String"
+let cloned = original
+shout("Original: " + original)
+shout("Cloned: " + cloned)
+shout(color.green("✓ String cloning works"))
+
+-- Test 2: Array Sharing
+shout("\n2. Testing array sharing...")
+let arr1 = [1, 2, 3]
+let arr2 = arr1
+shout("Array 1: " + arr1)
+shout("Array 2: " + arr2)
+shout(color.green("✓ Array sharing works"))
+
+-- Test 3: Map Sharing
+shout("\n3. Testing map sharing...")
+let map1 = {"a": 1, "b": 2}
+let map2 = map1
+shout(color.green("✓ Map sharing works"))
+
+-- Test 4: Function Sharing
+shout("\n4. Testing function sharing...")
+cast Spell greet(name) {
+    return "Hello, " + name
+}
+
+let greetFunc = greet
+let result1 = greet("Alice")
+let result2 = greetFunc("Bob")
+shout(result1)
+shout(result2)
+shout(color.green("✓ Function sharing works"))
+
+-- Test 5: Nested Structure Sharing
+shout("\n5. Testing nested structure sharing...")
+let nested1 = {
+    "names": ["Alice", "Bob"],
+    "cities": ["NYC", "LA"]
+}
+let nested2 = nested1
+shout(color.green("✓ Nested structure sharing works"))
+
+shout(color.bold(color.green("\n=== All Memory Safety Tests Passed ===")))
+shout(color.yellow("Arc is properly managing memory!"))

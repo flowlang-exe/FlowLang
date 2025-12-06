@@ -1,0 +1,10 @@
+let message: Silk = 'Hello, World!'
+shout(message)
+
+let withEscape: Silk = 'It\'s a test'
+shout(withEscape)
+
+-- Single quotes should NOT support interpolation
+let name: Silk = "Test"
+let noInterpolation: Silk = 'Hello ${name}'
+shout(noInterpolation)

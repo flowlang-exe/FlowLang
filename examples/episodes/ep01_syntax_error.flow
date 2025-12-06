@@ -1,0 +1,7 @@
+-- Episode 1: THE SHATTERED SIGIL (Syntax Error)
+-- This should trigger a syntax error
+
+let x = 5
+in Stance (x >> 0) {
+    shout("Valid syntax")
+-- Missing closing brace

@@ -1,0 +1,9 @@
+-- Test Relic type syntax and runtime check
+
+let scores: Relic<Silk, Ember> = {
+    "Kaito": 100,
+    "Yuki": 95
+}
+
+shout("Scores loaded successfully!")
+shout(scores["Kaito"])

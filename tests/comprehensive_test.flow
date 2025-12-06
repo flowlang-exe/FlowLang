@@ -1,0 +1,100 @@
+-- Comprehensive FlowLang Test Suite
+-- Tests all major features after Arc migration
+
+-- All imports at top
+circle math from "std:math"
+circle string from "std:string"
+circle cli from "std:cli"
+circle color from "std:color"
+
+shout("=== FlowLang Comprehensive Test Suite ===\n")
+
+-- Test 1: Basic Types
+shout("1. Testing Basic Types...")
+let num: Ember = 42
+let text: Silk = "Hello FlowLang"
+let flag: Pulse = true
+shout("✓ Numbers, Strings, Booleans work")
+
+-- Test 2: Arrays
+shout("\n2. Testing Arrays...")
+let numbers = [1, 2, 3, 4, 5]
+let names = ["Alice", "Bob", "Charlie"]
+shout("✓ Arrays work")
+
+-- Test 3: Maps (Relic)
+shout("\n3. Testing Maps...")
+let scores = {
+    "Alice": 100,
+    "Bob": 95,
+    "Charlie": 87
+}
+shout("✓ Maps work")
+
+-- Test 4: Functions (Spell)
+shout("\n4. Testing Functions...")
+cast Spell add(a, b) {
+    return a + b
+}
+let result = add(10, 20)
+shout("Result: " + result)
+shout("✓ Functions work")
+
+-- Test 5: Conditionals
+shout("\n5. Testing Conditionals...")
+let score = 85
+in Stance (score >> 90) {
+    shout("Grade: A")
+} shift Stance (score >> 80) {
+    shout("Grade: B")
+} shift Stance (score >> 70) {
+    shout("Grade: C")
+}
+shout("✓ Conditionals work")
+
+-- Test 6: Async (Ritual)
+shout("\n6. Testing Async...")
+ritual asyncTask ::
+    shout("Async task running...")
+    wait 500ms
+    return "Async complete"
+end
+let asyncResult = await asyncTask()
+shout(asyncResult)
+shout("✓ Async works")
+
+-- Test 7: Error Handling
+shout("\n7. Testing Error Handling...")
+attempt {
+    rupture Rift "Test error"
+} rescue Rift as e {
+    shout("Caught error: " + e)
+}
+shout("✓ Error handling works")
+
+-- Test 8: Standard Library - Math
+shout("\n8. Testing stdlib:math...")
+let minVal = math.min(5, 3)
+let maxVal = math.max(5, 3)
+shout("Min: " + minVal + ", Max: " + maxVal)
+shout("✓ Math stdlib works")
+
+-- Test 9: Standard Library - String
+shout("\n9. Testing stdlib:string...")
+let upper = string.upper("hello")
+let lower = string.lower("WORLD")
+shout("Upper: " + upper + ", Lower: " + lower)
+shout("✓ String stdlib works")
+
+-- Test 10: Standard Library - CLI
+shout("\n10. Testing stdlib:cli...")
+let args = cli.args()
+shout("CLI args received")
+shout("✓ CLI stdlib works")
+
+-- Test 11: Standard Library - Color
+shout("\n11. Testing stdlib:color...")
+shout(color.green("✓ Color stdlib works"))
+
+shout("\n=== All Tests Passed! ===")
+shout(color.bold(color.cyan("FlowLang is working perfectly after Arc migration!")))

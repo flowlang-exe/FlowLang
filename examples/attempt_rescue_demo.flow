@@ -1,0 +1,100 @@
+-- ⚔️ ATTEMPT/RESCUE DEMONSTRATION ⚔️
+-- Comprehensive try-catch error handling examples
+
+shout("=== ATTEMPT/RESCUE DEMONSTRATION ===")
+shout("")
+
+-- Example 1: Basic Attempt/Rescue
+shout("[1] Basic Error Catching")
+attempt {
+    shout("Attempting risky operation...")
+    rupture Spirit "Something went wrong"
+}
+rescue {
+    shout("✓ Error caught and handled!")
+}
+
+shout("")
+
+-- Example 2: Error Type Matching
+shout("[2] Error Type Matching")
+attempt {
+    shout("Attempting network operation...")
+    rupture Rift "Network connection lost"
+}
+rescue Rift {
+    shout("✓ Rift error caught!")
+    whisper("Network error handled gracefully")
+}
+rescue {
+    shout("Other error type")
+}
+
+shout("")
+
+-- Example 3: Error Binding
+shout("[3] Error Binding with 'as'")
+attempt {
+    shout("Attempting data parsing...")
+    rupture Glitch "Invalid JSON format"
+}
+rescue Glitch as e {
+    shout("✓ Glitch caught!")
+    whisper("Error message: " + e)
+}
+
+shout("")
+
+-- Example 4: Multiple Rescue Clauses
+shout("[4] Multiple Rescue Clauses")
+attempt {
+    shout("Attempting operation...")
+    rupture VoidTear "Null pointer accessed"
+}
+rescue Rift {
+    shout("Network error")
+}
+rescue Glitch {
+    shout("Parse error")
+}
+rescue VoidTear as e {
+    shout("✓ VoidTear caught!")
+    whisper("Error: " + e)
+}
+rescue {
+    shout("Unknown error")
+}
+
+shout("")
+
+-- Example 5: Finally Block
+shout("[5] Finally Block (Always Executes)")
+attempt {
+    shout("Attempting operation...")
+    rupture Spirit "Test error"
+}
+rescue {
+    shout("✓ Error caught")
+}
+finally {
+    shout("✓ Finally block executed!")
+    whisper("Cleanup complete")
+}
+
+shout("")
+
+-- Example 6: Successful Attempt (No Error)
+shout("[6] Successful Attempt (No Error)")
+attempt {
+    shout("Attempting safe operation...")
+    whisper("Operation completed successfully")
+}
+rescue {
+    shout("This won't execute")
+}
+finally {
+    shout("✓ Finally still executes!")
+}
+
+shout("")
+chant("✅ All attempt/rescue tests completed!")

@@ -1,0 +1,6 @@
+-- Episode 15: WHEN THE CORE COLLAPSES (Unhandled Panic)
+-- This should trigger a Panic error
+
+shout("This is about to get catastrophic...")
+
+panic "THE MANA CORE HAS OVERLOADED!"

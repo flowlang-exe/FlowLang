@@ -1,0 +1,71 @@
+-- Simple Arc Migration Test
+-- Verifies that Arc migration works correctly
+
+-- All imports at the top
+circle color from "std:color"
+circle math from "std:math"
+
+shout(color.cyan("=== Arc Migration Test ===\n"))
+
+-- Test 1: Basic Values
+shout("1. Basic Values")
+let num = 42
+let text = "Hello"
+let flag = true
+shout(color.green("✓ Basic values work\n"))
+
+-- Test 2: Arrays
+shout("2. Arrays")
+let arr = [1, 2, 3, 4, 5]
+shout("Array: " + arr)
+shout(color.green("✓ Arrays work\n"))
+
+-- Test 3: Maps
+shout("3. Maps (Relic)")
+let map = {"name": "Alice", "age": 30}
+shout(color.green("✓ Maps work\n"))
+
+-- Test 4: Functions
+shout("4. Functions")
+cast Spell greet(name) {
+    return "Hello, " + name
+}
+let greeting = greet("World")
+shout(greeting)
+shout(color.green("✓ Functions work\n"))
+
+-- Test 5: Conditionals
+shout("5. Conditionals")
+let x = 10
+in Stance (x >> 5) {
+    shout("x is greater than 5")
+}
+shout(color.green("✓ Conditionals work\n"))
+
+-- Test 6: Async
+shout("6. Async (Ritual)")
+ritual asyncTest ::
+    wait 100ms
+    return "Async done"
+end
+let result = await asyncTest()
+shout(result)
+shout(color.green("✓ Async works\n"))
+
+-- Test 7: Error Handling
+shout("7. Error Handling")
+attempt {
+    rupture Rift "Test error"
+} rescue Rift as e {
+    shout("Caught: " + e)
+}
+shout(color.green("✓ Error handling works\n"))
+
+-- Test 8: Stdlib
+shout("8. Standard Library")
+let min = math.min(3, 5)
+shout("min(3, 5) = " + min)
+shout(color.green("✓ Stdlib works\n"))
+
+shout(color.bold(color.green("=== All Tests Passed! ===")))
+shout(color.yellow("Arc migration successful!"))

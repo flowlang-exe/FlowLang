@@ -1,0 +1,52 @@
+-- OS Module Test
+-- Tests std:os operating system functions
+
+circle os from "std:os"
+circle color from "std:color"
+
+shout(color.cyan("=== OS Module Test ===\n"))
+
+-- Test 1: OS Information
+shout(color.yellow("1. OS Information..."))
+let osName = os.name()
+let osArch = os.arch()
+let osFamily = os.family()
+let osVersion = os.version()
+shout("  OS Name: " + osName)
+shout("  Architecture: " + osArch)
+shout("  Family: " + osFamily)
+shout("  Version: " + osVersion)
+shout(color.green("  ✓ OS info works\n"))
+
+-- Test 2: Current Directory
+shout(color.yellow("2. Current Directory..."))
+let cwd = os.cwd()
+shout("  CWD: " + cwd)
+shout(color.green("  ✓ CWD works\n"))
+
+-- Test 3: Home Directory
+shout(color.yellow("3. Home Directory..."))
+let home = os.home_dir()
+shout("  Home: " + home)
+shout(color.green("  ✓ Home dir works\n"))
+
+-- Test 4: Process ID
+shout(color.yellow("4. Process ID..."))
+let pid = os.pid()
+shout("  PID: " + pid)
+shout(color.green("  ✓ PID works\n"))
+
+-- Test 5: Environment Variables
+shout(color.yellow("5. Environment Variables..."))
+os.set_env("FLOWLANG_TEST", "Hello")
+let testVar = os.env("FLOWLANG_TEST")
+shout("  Set FLOWLANG_TEST = " + testVar)
+shout(color.green("  ✓ Env vars work\n"))
+
+-- Test 6: Get PATH
+shout(color.yellow("6. PATH Variable..."))
+let pathVar = os.env("PATH")
+shout("  PATH exists: " + pathVar)
+shout(color.green("  ✓ PATH check works\n"))
+
+shout(color.bold(color.green("=== All OS Tests Passed ===")))

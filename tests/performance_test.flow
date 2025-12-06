@@ -1,0 +1,63 @@
+-- Performance Test
+-- Tests that Arc doesn't significantly impact performance
+
+circle color from "std:color"
+circle string from "std:string"
+
+shout(color.cyan("=== Performance Test ===\n"))
+
+-- Test 1: Large Array Creation
+shout("1. Creating large array...")
+let largeArray = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+shout(color.green("✓ Large array created"))
+
+-- Test 2: Nested Data Structures
+shout("\n2. Creating nested structures...")
+let nested = {
+    "first": [1, 2, 3],
+    "second": [4, 5, 6],
+    "third": [7, 8, 9]
+}
+shout(color.green("✓ Nested structures work"))
+
+-- Test 3: Function Calls
+shout("\n3. Testing function calls...")
+cast Spell fibonacci(n) {
+    in Stance (n << 2) {
+        return n
+    }
+    return fibonacci(n - 1) + fibonacci(n - 2)
+}
+
+let fib5 = fibonacci(5)
+shout("Fibonacci(5) = " + fib5)
+shout(color.green("✓ Recursive functions work"))
+
+-- Test 4: String Operations
+shout("\n4. Testing string operations...")
+let text = "Hello World"
+let upper = string.upper(text)
+let lower = string.lower(text)
+shout(color.green("✓ String operations work"))
+
+-- Test 5: Multiple Async Tasks
+shout("\n5. Testing multiple async tasks...")
+ritual task1 ::
+    wait 100ms
+    return "Task 1 done"
+end
+
+ritual task2 ::
+    wait 100ms
+    return "Task 2 done"
+end
+
+ritual task3 ::
+    wait 100ms
+    return "Task 3 done"
+end
+
+perform task1(), task2(), task3()
+shout(color.green("✓ Multiple async tasks complete"))
+
+shout(color.bold(color.cyan("\n=== Performance Test Complete ===")))

@@ -1,0 +1,26 @@
+-- Test constant folding optimization
+
+shout("=== Testing Constant Folding ===")
+
+-- Test 1: Arithmetic constant folding
+let result1 = 2 + 3 * 4  -- Should be folded to 14
+shout("2 + 3 * 4 = " + result1)
+
+-- Test 2: String concatenation folding
+let greeting = "Hello" + " " + "World"  -- Should be folded to "Hello World"
+shout(greeting)
+
+-- Test 3: Boolean operations
+let bool1 = true both! true  -- true AND true = true
+let bool2 = false either! false  -- false OR false = false
+shout("Boolean test: " + bool1)
+
+-- Test 4: Nested arithmetic
+let complex = (10 + 5) * 2 - 3  -- Should be folded to 27
+shout("Complex: " + complex)
+
+-- Test 5: Mixed operations
+let mixed = "Result: " + (100 / 4)  -- "Result: " + 25
+shout(mixed)
+
+shout("\n✅ Constant folding test complete!")

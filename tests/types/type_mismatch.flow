@@ -1,0 +1,5 @@
+-- This should fail due to type mismatch
+
+let x: Ember = "Not a number"
+
+shout(x)

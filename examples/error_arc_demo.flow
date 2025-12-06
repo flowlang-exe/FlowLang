@@ -1,0 +1,43 @@
+-- ⚔️ ERROR ARC DEMO ⚔️
+-- This demonstrates FlowLang's epic anime-style error handling system
+
+shout("=== ERROR ARC DEMONSTRATION ===")
+shout("")
+
+-- Demo 1: Wound - Soft Error (Non-Fatal)
+shout("[1] Testing WOUND - Soft Error")
+whisper("Wounds are non-fatal warnings that let execution continue...")
+shout("")
+
+wound "Minor disturbance detected in the flow"
+wound "Energy levels slightly unstable"
+wound "Aura flickering but stable"
+
+shout("")
+whisper("✓ Execution continued despite wounds!")
+
+-- Demo 2: Panic - Catastrophic Failure (Commented Out)
+shout("")
+shout("[2] PANIC Feature")
+whisper("See panic_test.flow for the epic panic demonstration")
+
+
+
+shout("")
+chant("✅ ERROR ARC demonstration complete!")
+shout("")
+shout("=== Currently Working ===")
+whisper("  💀 panic  - Catastrophic failure (terminates immediately)")
+whisper("  🩹 wound  - Soft error (logs warning, continues)")
+whisper("")
+shout("=== Coming Soon ===")
+whisper("  ⚔️  attempt/rescue - Try-catch with retry")
+whisper("  🌐 Rift - Network/IO errors")
+whisper("  ⚡ Glitch - Parse/Format errors")
+whisper("  🕳️  VoidTear - Null/Empty access")
+whisper("  👻 Spirit - Generic catchable error")
+whisper("  🛡️  ward - Error containment scopes")
+whisper("  🔄 rebound - Rethrow errors")
+whisper("  🔓 break seal - Exit loops")
+whisper("  💥 fracture seal - Continue loops")
+whisper("  ⚡ shatter grand_seal - Early return")

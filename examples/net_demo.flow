@@ -1,0 +1,77 @@
+-- Network Module Demo
+-- This demonstrates all HTTP methods using the std:net module
+-- Note: Requires internet connection
+
+circle net from "std:net"
+circle json from "std:json"
+
+shout("=== FlowLang Network Module Demo ===")
+
+-- Test 1: GET Request
+shout("")
+shout("[1] GET Request")
+whisper("Fetching todo item...")
+let get_response = net.get("https://jsonplaceholder.typicode.com/todos/1")
+whisper("Response:")
+whisper(get_response)
+
+-- Test 2: POST Request
+shout("")
+shout("[2] POST Request")
+whisper("Creating new resource...")
+let post_data = json.stringify([1, 2, 3, 4, 5])
+let post_response = net.post("https://jsonplaceholder.typicode.com/posts", post_data)
+whisper("POST Response:")
+whisper(post_response)
+
+-- Test 3: PUT Request
+shout("")
+shout("[3] PUT Request")
+whisper("Updating resource...")
+let put_data = json.stringify([10, 20, 30])
+let put_response = net.put("https://jsonplaceholder.typicode.com/posts/1", put_data)
+whisper("PUT Response:")
+whisper(put_response)
+
+-- Test 4: PATCH Request
+shout("")
+shout("[4] PATCH Request")
+whisper("Partially updating resource...")
+let patch_data = json.stringify([100, 200])
+let patch_response = net.patch("https://jsonplaceholder.typicode.com/posts/1", patch_data)
+whisper("PATCH Response:")
+whisper(patch_response)
+
+-- Test 5: DELETE Request
+shout("")
+shout("[5] DELETE Request")
+whisper("Deleting resource...")
+let delete_response = net.delete("https://jsonplaceholder.typicode.com/posts/1")
+whisper("DELETE Response:")
+whisper(delete_response)
+
+-- Test 6: HEAD Request
+shout("")
+shout("[6] HEAD Request")
+whisper("Checking resource headers...")
+let head_response = net.head("https://jsonplaceholder.typicode.com/posts/1")
+whisper("HEAD Response:")
+whisper(head_response)
+
+-- Test 7: Generic Request Method
+shout("")
+shout("[7] Generic Request Method")
+whisper("Using net.request() with custom method...")
+let custom_get = net.request("GET", "https://jsonplaceholder.typicode.com/users/1")
+whisper("Custom GET Response:")
+whisper(custom_get)
+
+whisper("")
+whisper("Using net.request() with POST...")
+let custom_post_data = json.stringify([5, 10, 15])
+let custom_post = net.request("POST", "https://jsonplaceholder.typicode.com/posts", custom_post_data)
+whisper("Custom POST Response:")
+whisper(custom_post)
+
+shout("")
+chant("✅ All HTTP methods tested successfully!")

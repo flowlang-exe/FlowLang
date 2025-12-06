@@ -1,0 +1,5 @@
+-- Module B - imports module A (creates circular dependency!)
+circle circular_a from "circular_a.flow"
+
+@export let dataB = "I am module B"
+@export let fromA = circular_a.dataA

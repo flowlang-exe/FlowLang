@@ -1,0 +1,12 @@
+-- Test Panic Feature
+-- This will trigger the epic SYSTEM PANIC error
+
+shout("=== Testing PANIC Feature ===")
+shout("")
+whisper("Initiating mana core overload...")
+whisper("3...")
+whisper("2...")
+whisper("1...")
+shout("")
+
+panic "Mana Core Overload! Reality is collapsing!"

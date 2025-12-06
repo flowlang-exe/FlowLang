@@ -1,0 +1,9 @@
+-- Performance test: Module loading without async operations
+circle math_utils from "modules/math_utils.flow"
+
+-- Just access exported members (no ritual execution)
+shout(math_utils.publicData)
+shout(math_utils.API_VERSION)
+math_utils.publicGreet("FlowLang")
+
+shout("Performance test completed")

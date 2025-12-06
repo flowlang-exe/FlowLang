@@ -1,0 +1,52 @@
+-- For-Each Loop Examples in FlowLang
+
+shout("For-Each Loop Demonstrations")
+
+-- Example 1: Processing a list of heroes
+shout("\n=== Example 1: Hero Roll Call ===")
+let heroes = ["Goku", "Vegeta", "Gohan", "Piccolo", "Trunks"]
+enter Phase hero in heroes {
+    shout("Hero: " + hero + " has entered the battle!")
+}
+
+-- Example 2: Power levels
+shout("\n=== Example 2: Power Level Check ===")
+let powerLevels = [9000, 8500, 7200, 6800, 9500]
+enter Phase power in powerLevels {
+    shout("Power level: " + power)
+}
+
+-- Example 3: Filtering with break
+shout("\n=== Example 3: Finding First High Power ===")
+let levels = [1000, 2000, 9500, 3000, 8000]
+enter Phase level in levels {
+    in Stance (level >> 9000) {
+        shout("Found power level over 9000: " + level)
+        break seal
+    }
+    shout("Checking: " + level)
+}
+
+-- Example 4: Nested arrays (matrix processing)
+shout("\n=== Example 4: Team Formation ===")
+let teams = [
+    ["Goku", "Vegeta"],
+    ["Gohan", "Piccolo"],
+    ["Trunks", "Goten"]
+]
+enter Phase team in teams {
+    shout("Team:")
+    enter Phase member in team {
+        shout("  - " + member)
+    }
+}
+
+-- Example 5: Working with array methods
+shout("\n=== Example 5: Dynamic Array Processing ===")
+let baseScores = [85, 90, 78]
+let bonusScores = baseScores.push(95).push(88)
+enter Phase score in bonusScores {
+    shout("Score: " + score)
+}
+
+shout("\nAll for-each demonstrations complete!")

@@ -1,0 +1,50 @@
+-- HTTP Module Demo
+-- This demonstrates HTTP GET and POST requests using the std:http module
+-- Note: Requires internet connection
+
+circle http from "std:http"
+circle json from "std:json"
+
+shout("=== FlowLang HTTP Module Demo ===")
+
+-- Test 1: Simple GET request
+shout("")
+shout("[1] HTTP GET Request")
+whisper("Fetching data from JSONPlaceholder API...")
+
+let response = http.get("https://jsonplaceholder.typicode.com/todos/1")
+whisper("Response received:")
+whisper(response)
+
+-- Test 2: Parse JSON response
+shout("")
+shout("[2] Parsing JSON Response")
+let todo = json.parse(response)
+whisper("Parsed response: " + todo)
+
+-- Test 3: GET request for user data
+shout("")
+shout("[3] Fetching User Data")
+let user_response = http.get("https://jsonplaceholder.typicode.com/users/1")
+whisper("User data:")
+whisper(user_response)
+
+-- Test 4: GET request for posts
+shout("")
+shout("[4] Fetching Posts")
+let posts_response = http.get("https://jsonplaceholder.typicode.com/posts/1")
+whisper("Post data:")
+whisper(posts_response)
+
+-- Test 5: POST request
+shout("")
+shout("[5] HTTP POST Request")
+whisper("Sending POST request...")
+
+let post_data = json.stringify([1, 2, 3, 4, 5])
+let post_response = http.post("https://jsonplaceholder.typicode.com/posts", post_data)
+whisper("POST response:")
+whisper(post_response)
+
+shout("")
+chant("✅ HTTP module tests completed!")

@@ -1,0 +1,7 @@
+{
+    "name": "type_test",
+    "version": "0.1.0",
+    "entry": "src/main.flow",
+    "authors": [],
+    "type_required": false
+}

@@ -72,24 +72,11 @@ async fn web_serve(args: Vec<Value>, ctx: AsyncContext) -> Result<Value, FlowErr
     tokio::spawn(async move {
         use warp::Filter;
         
-        // Create a channel for request/response communication
-        // Tuple: (method, path, body, headers, client_addr, resp_tx)
-        // Response: (status, body, content_type, custom_headers)
-        let (req_tx, mut req_rx) = tokio::sync::mpsc::unbounded_channel::<(
-            warp::http::Method,
-            String,
-            String,
-            HashMap<String, String>,  // Request Headers
-            Option<std::net::SocketAddr>,  // Client IP
-            tokio::sync::oneshot::Sender<(u16, String, String, HashMap<String, String>)>,
-        )>();
-
-        let req_tx = Arc::new(req_tx);
         let handler_clone = handler.clone();
         let callback_tx_clone = callback_tx.clone();
 
         // Warp route that handles all requests
-        let req_tx_filter = req_tx.clone();
+        // Note: Logic moved INSIDE the filter to run concurrently on Tokio thread pool
         let routes = warp::any()
             .and(warp::method())
             .and(warp::path::full())
@@ -103,52 +90,151 @@ async fn web_serve(args: Vec<Value>, ctx: AsyncContext) -> Result<Value, FlowErr
                            headers: warp::http::HeaderMap,
                            addr: Option<std::net::SocketAddr>,
                            body: bytes::Bytes| {
-                let req_tx = req_tx_filter.clone();
+                
+                // Clone shared resources for this specific request task
+                let handler = handler_clone.clone();
+                let callback_tx = callback_tx_clone.clone();
+                
                 async move {
-                    let (resp_tx, resp_rx) = tokio::sync::oneshot::channel();
+                    // --- PRE-PROCESSING (Concurrent) ---
+                    // This runs on a worker thread, unrelated to the interpreter lock
+                    
+                    let path_str = path.as_str().to_string();
                     let body_str = String::from_utf8_lossy(&body).to_string();
                     
-                    // Combine path with query string
+                    // Combine path with query string for 'url' field
                     let full_path = if query.is_empty() {
-                        path.as_str().to_string()
+                        path_str.clone()
                     } else {
-                        format!("{}?{}", path.as_str(), query)
+                        format!("{}?{}", path_str, query)
                     };
                     
-                    // Convert headers to HashMap<String, String>
+                    // Convert headers to HashMap
                     let headers_map: HashMap<String, String> = headers
                         .iter()
                         .map(|(k, v)| (k.to_string(), v.to_str().unwrap_or("").to_string()))
                         .collect();
                     
-                    if req_tx.send((method, full_path, body_str, headers_map, addr, resp_tx)).is_err() {
+                    // Parse path and query
+                    let pathname = path_str.clone();
+                    let query_string = if query.is_empty() { None } else { Some(query.as_str()) };
+                    
+                    // Parse query string into Relic
+                    let query_map = if let Some(qs) = query_string {
+                        let mut map = HashMap::new();
+                        for pair in qs.split('&') {
+                            if pair.is_empty() { continue; }
+                            let parts: Vec<&str> = pair.splitn(2, '=').collect();
+                            let key = parts[0].to_string();
+                            let value = if parts.len() > 1 { parts[1].to_string() } else { String::new() };
+                            map.insert(key, Value::String(Arc::new(value)));
+                        }
+                        Value::Relic(Arc::new(map))
+                    } else {
+                        Value::Relic(Arc::new(HashMap::new()))
+                    };
+                    
+                    // Convert headers to Value::Relic
+                    let headers_relic: HashMap<String, Value> = headers_map.iter()
+                        .map(|(k, v)| (k.to_lowercase(), Value::String(Arc::new(v.clone()))))
+                        .collect();
+                    
+                    // Parse cookies
+                    let cookies_map = if let Some(cookie_header) = headers_map.get("cookie") {
+                        let mut map = HashMap::new();
+                        for pair in cookie_header.split(';') {
+                            let pair = pair.trim();
+                            if let Some(idx) = pair.find('=') {
+                                let key = pair[..idx].to_string();
+                                let value = pair[idx + 1..].to_string();
+                                map.insert(key, Value::String(Arc::new(value)));
+                            }
+                        }
+                        Value::Relic(Arc::new(map))
+                    } else {
+                        Value::Relic(Arc::new(HashMap::new()))
+                    };
+                    
+                    // Get host and build URL
+                    let host = headers_map.get("host").cloned().unwrap_or_else(|| "localhost".to_string());
+                    let protocol = "http"; 
+                    let url = format!("{}://{}{}", protocol, host, full_path);
+                    let ip = addr.map(|a| a.ip().to_string()).unwrap_or_else(|| "unknown".to_string());
+                    
+                    // Create Request Object
+                    let mut req_map = HashMap::new();
+                    req_map.insert("method".to_string(), Value::String(Arc::new(method.to_string())));
+                    req_map.insert("path".to_string(), Value::String(Arc::new(full_path)));
+                    req_map.insert("pathname".to_string(), Value::String(Arc::new(pathname)));
+                    req_map.insert("url".to_string(), Value::String(Arc::new(url)));
+                    req_map.insert("query".to_string(), query_map);
+                    req_map.insert("headers".to_string(), Value::Relic(Arc::new(headers_relic)));
+                    req_map.insert("cookies".to_string(), cookies_map);
+                    req_map.insert("body".to_string(), Value::String(Arc::new(body_str)));
+                    req_map.insert("ip".to_string(), Value::String(Arc::new(ip)));
+                    req_map.insert("host".to_string(), Value::String(Arc::new(host)));
+                    req_map.insert("protocol".to_string(), Value::String(Arc::new(protocol.to_string())));
+                    let request_value = Value::Relic(Arc::new(req_map));
+                    
+                    // Create Response Object
+                    let mut res_map = HashMap::new();
+                    res_map.insert("json".to_string(), Value::NativeFunction(NativeFn(Arc::new(res_json))));
+                    res_map.insert("html".to_string(), Value::NativeFunction(NativeFn(Arc::new(res_html))));
+                    res_map.insert("text".to_string(), Value::NativeFunction(NativeFn(Arc::new(res_text))));
+                    res_map.insert("status".to_string(), Value::NativeFunction(NativeFn(Arc::new(res_status))));
+                    res_map.insert("redirect".to_string(), Value::NativeFunction(NativeFn(Arc::new(res_redirect))));
+                    res_map.insert("notFound".to_string(), Value::NativeFunction(NativeFn(Arc::new(res_not_found))));
+                    res_map.insert("badRequest".to_string(), Value::NativeFunction(NativeFn(Arc::new(res_bad_request))));
+                    res_map.insert("serverError".to_string(), Value::NativeFunction(NativeFn(Arc::new(res_server_error))));
+                    res_map.insert("ok".to_string(), Value::NativeFunction(NativeFn(Arc::new(res_ok))));
+                    res_map.insert("created".to_string(), Value::NativeFunction(NativeFn(Arc::new(res_created))));
+                    res_map.insert("noContent".to_string(), Value::NativeFunction(NativeFn(Arc::new(res_no_content))));
+                    res_map.insert("unauthorized".to_string(), Value::NativeFunction(NativeFn(Arc::new(res_unauthorized))));
+                    res_map.insert("forbidden".to_string(), Value::NativeFunction(NativeFn(Arc::new(res_forbidden))));
+                    res_map.insert("send".to_string(), Value::NativeFunction(NativeFn(Arc::new(res_send))));
+                    res_map.insert("file".to_string(), Value::NativeFunction(NativeFn(Arc::new(res_file))));
+                    res_map.insert("header".to_string(), Value::NativeFunction(NativeFn(Arc::new(res_header))));
+                    let response_value = Value::Relic(Arc::new(res_map));
+
+                    // --- DISPATCH TO INTERPRETER ---
+                    let (response_tx, response_rx) = tokio::sync::oneshot::channel();
+                    
+                    let callback_request = crate::runtime::WebCallbackRequest {
+                        callback: handler,
+                        args: vec![request_value, response_value],
+                        response_tx,
+                    };
+
+                    if callback_tx.send(callback_request).is_err() {
                         return Ok::<_, warp::Rejection>(
                             warp::reply::with_status(
-                                "Server Error",
-                                warp::http::StatusCode::INTERNAL_SERVER_ERROR,
+                                "Server Busy",
+                                warp::http::StatusCode::SERVICE_UNAVAILABLE,
                             ).into_response()
                         );
                     }
-                    
-                    match resp_rx.await {
-                        Ok((status, body, content_type, custom_headers)) => {
-                            let status = warp::http::StatusCode::from_u16(status)
-                                .unwrap_or(warp::http::StatusCode::OK);
-                            let mut reply = warp::reply::with_status(body, status).into_response();
+
+                    // Wait for result from Interpreter
+                    match response_rx.await {
+                        Ok(result) => {
+                            let (status, body, content_type, custom_headers) = extract_response(result);
                             
-                            // Set Content-Type
+                            let status_code = warp::http::StatusCode::from_u16(status)
+                                .unwrap_or(warp::http::StatusCode::OK);
+                                
+                            let mut reply = warp::reply::with_status(body, status_code).into_response();
+                            
                             reply.headers_mut().insert(
                                 "Content-Type",
                                 content_type.parse().unwrap_or_else(|_| "text/plain".parse().unwrap())
                             );
                             
-                            // Add custom headers
                             for (name, value) in custom_headers {
-                                if let (Ok(header_name), Ok(header_value)) = (
+                                if let (Ok(n), Ok(v)) = (
                                     warp::http::header::HeaderName::try_from(name.as_str()),
                                     warp::http::header::HeaderValue::try_from(value.as_str())
                                 ) {
-                                    reply.headers_mut().insert(header_name, header_value);
+                                    reply.headers_mut().insert(n, v);
                                 }
                             }
                             
@@ -156,146 +242,13 @@ async fn web_serve(args: Vec<Value>, ctx: AsyncContext) -> Result<Value, FlowErr
                         }
                         Err(_) => Ok(
                             warp::reply::with_status(
-                                "Handler Error",
+                                "Evaluation Error",
                                 warp::http::StatusCode::INTERNAL_SERVER_ERROR,
                             ).into_response()
                         ),
                     }
                 }
             });
-
-        // Spawn request handler task
-        let handler_task = tokio::spawn(async move {
-            while let Some((method, path, body, headers_map, addr, resp_tx)) = req_rx.recv().await {
-                // Parse path and query
-                let (pathname, query_string) = if let Some(idx) = path.find('?') {
-                    (&path[..idx], Some(&path[idx + 1..]))
-                } else {
-                    (path.as_str(), None)
-                };
-                
-                // Parse query string into Relic
-                let query_map = if let Some(qs) = query_string {
-                    let mut map = HashMap::new();
-                    for pair in qs.split('&') {
-                        if pair.is_empty() {
-                            continue;
-                        }
-                        let parts: Vec<&str> = pair.splitn(2, '=').collect();
-                        let key = parts[0].to_string();
-                        let value = if parts.len() > 1 {
-                            parts[1].to_string()
-                        } else {
-                            String::new()
-                        };
-                        map.insert(key, Value::String(Arc::new(value)));
-                    }
-                    Value::Relic(Arc::new(map))
-                } else {
-                    Value::Relic(Arc::new(HashMap::new()))
-                };
-                
-                // Convert headers to Value::Relic
-                let headers_relic: HashMap<String, Value> = headers_map.iter()
-                    .map(|(k, v)| (k.to_lowercase(), Value::String(Arc::new(v.clone()))))
-                    .collect();
-                
-                // Parse cookies from Cookie header
-                let cookies_map = if let Some(cookie_header) = headers_map.get("cookie") {
-                    let mut map = HashMap::new();
-                    for pair in cookie_header.split(';') {
-                        let pair = pair.trim();
-                        if let Some(idx) = pair.find('=') {
-                            let key = pair[..idx].to_string();
-                            let value = pair[idx + 1..].to_string();
-                            map.insert(key, Value::String(Arc::new(value)));
-                        }
-                    }
-                    Value::Relic(Arc::new(map))
-                } else {
-                    Value::Relic(Arc::new(HashMap::new()))
-                };
-                
-                // Get host from headers or default
-                let host = headers_map.get("host")
-                    .cloned()
-                    .unwrap_or_else(|| "localhost".to_string());
-                
-                // Build full URL
-                let protocol = "http"; // Could detect from X-Forwarded-Proto
-                let url = format!("{}://{}{}", protocol, host, path);
-                
-                // Get client IP
-                let ip = addr.map(|a| a.ip().to_string()).unwrap_or_else(|| "unknown".to_string());
-                
-                // Create enhanced request object
-                let mut req_map = HashMap::new();
-                req_map.insert("method".to_string(), Value::String(Arc::new(method.to_string())));
-                req_map.insert("path".to_string(), Value::String(Arc::new(path.clone())));
-                req_map.insert("pathname".to_string(), Value::String(Arc::new(pathname.to_string())));
-                req_map.insert("url".to_string(), Value::String(Arc::new(url)));
-                req_map.insert("query".to_string(), query_map);
-                req_map.insert("headers".to_string(), Value::Relic(Arc::new(headers_relic)));
-                req_map.insert("cookies".to_string(), cookies_map);
-                req_map.insert("body".to_string(), Value::String(Arc::new(body)));
-                req_map.insert("ip".to_string(), Value::String(Arc::new(ip)));
-                req_map.insert("host".to_string(), Value::String(Arc::new(host)));
-                req_map.insert("protocol".to_string(), Value::String(Arc::new(protocol.to_string())));
-                
-                let request_value = Value::Relic(Arc::new(req_map));
-                
-                // Create response object with callable methods
-                let mut res_map = HashMap::new();
-                res_map.insert("json".to_string(), Value::NativeFunction(NativeFn(Arc::new(res_json))));
-                res_map.insert("html".to_string(), Value::NativeFunction(NativeFn(Arc::new(res_html))));
-                res_map.insert("text".to_string(), Value::NativeFunction(NativeFn(Arc::new(res_text))));
-                res_map.insert("status".to_string(), Value::NativeFunction(NativeFn(Arc::new(res_status))));
-                res_map.insert("redirect".to_string(), Value::NativeFunction(NativeFn(Arc::new(res_redirect))));
-                res_map.insert("notFound".to_string(), Value::NativeFunction(NativeFn(Arc::new(res_not_found))));
-                res_map.insert("badRequest".to_string(), Value::NativeFunction(NativeFn(Arc::new(res_bad_request))));
-                res_map.insert("serverError".to_string(), Value::NativeFunction(NativeFn(Arc::new(res_server_error))));
-                // Status helpers
-                res_map.insert("ok".to_string(), Value::NativeFunction(NativeFn(Arc::new(res_ok))));
-                res_map.insert("created".to_string(), Value::NativeFunction(NativeFn(Arc::new(res_created))));
-                res_map.insert("noContent".to_string(), Value::NativeFunction(NativeFn(Arc::new(res_no_content))));
-                res_map.insert("unauthorized".to_string(), Value::NativeFunction(NativeFn(Arc::new(res_unauthorized))));
-                res_map.insert("forbidden".to_string(), Value::NativeFunction(NativeFn(Arc::new(res_forbidden))));
-                res_map.insert("send".to_string(), Value::NativeFunction(NativeFn(Arc::new(res_send))));
-                // File and header helpers
-                res_map.insert("file".to_string(), Value::NativeFunction(NativeFn(Arc::new(res_file))));
-                res_map.insert("header".to_string(), Value::NativeFunction(NativeFn(Arc::new(res_header))));
-                
-                let response_value = Value::Relic(Arc::new(res_map));
-                
-                // Create response channel to wait for handler result
-                let (response_tx, response_rx) = tokio::sync::oneshot::channel();
-                
-                // Send web callback to main event loop (with response channel)
-                // Pass both req and res to handler
-                let callback_request = crate::runtime::WebCallbackRequest {
-                    callback: handler_clone.clone(),
-                    args: vec![request_value, response_value],
-                    response_tx,
-                };
-                
-                if callback_tx_clone.send(callback_request).is_err() {
-                    let _ = resp_tx.send((500, "Server Error".to_string(), "text/plain".to_string(), HashMap::new()));
-                    continue;
-                }
-                
-                // Wait for handler to return response
-                match response_rx.await {
-                    Ok(result) => {
-                        // Extract status, body, content-type, and headers from result
-                        let (status, body, content_type, headers) = extract_response(result);
-                        let _ = resp_tx.send((status, body, content_type, headers));
-                    }
-                    Err(_) => {
-                        let _ = resp_tx.send((200, "OK".to_string(), "text/plain".to_string(), HashMap::new()));
-                    }
-                }
-            }
-        });
 
         // Run server with graceful shutdown
         let addr = ([0, 0, 0, 0], port);
@@ -304,10 +257,7 @@ async fn web_serve(args: Vec<Value>, ctx: AsyncContext) -> Result<Value, FlowErr
                 let _ = shutdown_rx.await;
             });
 
-        // println!("🌐 HTTP Server listening on http://0.0.0.0:{}", port);
-
         server.await;
-        handler_task.abort();
         
         // Unregister handle when server stops
         runtime.unregister_handle(handle_id).await;

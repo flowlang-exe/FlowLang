@@ -3,7 +3,7 @@
 import {
     Program, Statement, Expression, FunctionDecl, RitualDecl, LetStatement,
     SealStatement, Parameter, TypeExpr, StanceStatement, PhaseStatement,
-    AttemptStatement, AuraStatement, ReturnStatement, SigilDecl, ImportDecl
+    AttemptStatement, AuraStatement, ReturnStatement, SigilDecl, ImportDecl, SigilInstance
 } from './ast';
 import { Range } from './ast';
 
@@ -24,6 +24,7 @@ export type EssenceType =
     | { kind: 'Relic'; keyType: EssenceType; valueType: EssenceType }
     | { kind: 'Spell'; params: EssenceType[]; returnType: EssenceType }
     | { kind: 'Module'; name: string }
+    | { kind: 'Sigil'; name: string }
     | { kind: 'Unknown' };
 
 interface SymbolInfo {
@@ -292,7 +293,7 @@ export class TypeChecker {
                 default:
                     // Could be a sigil type
                     if (this.sigils.has(typeExpr.name)) {
-                        return { kind: 'Relic', keyType: { kind: 'Silk' }, valueType: { kind: 'Flux' } };
+                        return { kind: 'Sigil', name: typeExpr.name };
                     }
                     return { kind: 'Unknown' };
             }
@@ -701,6 +702,55 @@ export class TypeChecker {
                 return { kind: 'Spell', params: [], returnType: { kind: 'Flux' } };
             case 'AwaitExpr':
                 return this.inferType(expr.expression);
+            case 'SigilInstance':
+                // Check if sigil defined
+                const sigilDef = this.sigils.get(expr.name);
+                if (!sigilDef) {
+                    this.addError(
+                        `Unknown Sigil '${expr.name}'`,
+                        expr.range,
+                        'error'
+                    );
+                    return { kind: 'Unknown' };
+                }
+
+                // Check fields
+                const providedFields = new Set<string>();
+                for (const entry of expr.entries) {
+                    providedFields.add(entry.key);
+
+                    const fieldDef = sigilDef.fields.find(f => f.name === entry.key);
+                    if (!fieldDef) {
+                        this.addError(
+                            `Sigil '${expr.name}' does not have field '${entry.key}'`,
+                            entry.value.range,
+                            'error'
+                        );
+                        continue;
+                    }
+
+                    const valType = this.inferType(entry.value);
+                    if (!this.isAssignable(fieldDef.type, valType)) {
+                        this.addError(
+                            `Field '${entry.key}' expects ${this.typeToString(fieldDef.type)}, got ${this.typeToString(valType)}`,
+                            entry.value.range,
+                            'error'
+                        );
+                    }
+                }
+
+                // Check missing fields
+                for (const field of sigilDef.fields) {
+                    if (!providedFields.has(field.name)) {
+                        this.addError(
+                            `Missing required field '${field.name}' in Sigil '${expr.name}'`,
+                            expr.range,
+                            'error'
+                        );
+                    }
+                }
+
+                return { kind: 'Sigil', name: expr.name };
             default:
                 return { kind: 'Flux' };
         }
@@ -857,6 +907,9 @@ export class TypeChecker {
                 return this.isAssignable(source.keyType, target.keyType) &&
                     this.isAssignable(source.valueType, target.valueType);
             }
+            if (source.kind === 'Sigil' && target.kind === 'Sigil') {
+                return source.name === target.name;
+            }
             return true;
         }
 
@@ -872,6 +925,10 @@ export class TypeChecker {
             case 'Hollow':
             case 'Unknown':
                 return type.kind;
+            case 'Module':
+                return `Module<${type.name}>`;
+            case 'Sigil':
+                return `Sigil<${type.name}>`;
             case 'Constellation':
                 return `Constellation<${this.typeToString(type.elementType)}>`;
             case 'Relic':

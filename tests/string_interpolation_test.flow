@@ -10,7 +10,7 @@ let name = "FlowLang"
 let greeting = "Hello, ${name}!"
 shout("  Name: " + name)
 shout("  Greeting: " + greeting)
-if greeting is~ "Hello, FlowLang!" {
+in Stance (greeting is~ "Hello, FlowLang!") {
     shout(color.green("  ✓ Basic interpolation works\n"))
 } otherwise {
     shout(color.red("  ✗ Basic interpolation failed\n"))
@@ -22,7 +22,7 @@ let a = 10
 let b = 20
 let result = "${a} + ${b} = 30"
 shout("  Result: " + result)
-if result is~ "10 + 20 = 30" {
+in Stance (result is~ "10 + 20 = 30") {
     shout(color.green("  ✓ Multiple interpolations work\n"))
 } otherwise {
     shout(color.red("  ✗ Multiple interpolations failed\n"))
@@ -32,7 +32,7 @@ if result is~ "10 + 20 = 30" {
 shout(color.yellow("3. Testing expression interpolation..."))
 let calc = "1 + 2 = ${1 + 2}"
 shout("  Calc: " + calc)
-if calc is~ "1 + 2 = 3" {
+in Stance (calc is~ "1 + 2 = 3") {
     shout(color.green("  ✓ Expression interpolation works\n"))
 } otherwise {
     shout(color.red("  ✗ Expression interpolation failed\n"))
@@ -43,7 +43,7 @@ shout(color.yellow("4. Testing function call interpolation..."))
 let arr = [1, 2, 3]
 let msg = "Array length is ${arr.len()}"
 shout("  Msg: " + msg)
-if msg is~ "Array length is 3" {
+in Stance (msg is~ "Array length is 3") {
     shout(color.green("  ✓ Function call interpolation works\n"))
 } otherwise {
     shout(color.red("  ✗ Function call interpolation failed\n"))

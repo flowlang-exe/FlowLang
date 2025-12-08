@@ -214,8 +214,8 @@ cast Spell createNote(Silk title, Silk content)
 }
 ```
 
-**Sigils don't enforce structure yet** —
-but they act as documentation, guidance, and warnings to future you.
+**Sigils enforce structure** —
+they act as documentation, guidance, and warnings to future you.
 
 ---
 

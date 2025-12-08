@@ -1045,10 +1045,54 @@ impl Parser {
                 self.advance();
                 Ok(Expression::Boolean(false))
             }
-            TokenKind::Identifier(name) => {
-                let value = name.clone();
+            // Hande both! and either! as boolean literals in primary expression context
+            TokenKind::Both => {
                 self.advance();
-                Ok(Expression::Identifier(value))
+                Ok(Expression::Boolean(true))
+            }
+            TokenKind::Either => {
+                self.advance();
+                Ok(Expression::Boolean(false))
+            }
+            TokenKind::Identifier(name) => {
+                let sigil_name = name.clone();
+                let line = self.peek().line;
+                self.advance();
+                
+                // NEW: Check for Sigil Instantiation: Identifier { ... }
+                if self.check(&TokenKind::LeftBrace) {
+                    self.advance(); // consume '{'
+                    let mut fields = Vec::new();
+                    
+                    if !self.check(&TokenKind::RightBrace) {
+                        loop {
+                            let key = if let TokenKind::Identifier(s) = &self.peek().kind {
+                                s.clone()
+                            } else {
+                                return Err(FlowError::syntax(
+                                    "Expected identifier key in Sigil instantiation!",
+                                    self.peek().line,
+                                    self.peek().column,
+                                ));
+                            };
+                            self.advance();
+                            
+                            self.expect(&TokenKind::Colon, "Expected ':' after field name")?;
+                            let val = self.parse_expression()?;
+                            
+                            fields.push((key, val));
+                            
+                            if !self.match_token(&TokenKind::Comma) {
+                                break;
+                            }
+                        }
+                    }
+                    
+                    self.expect(&TokenKind::RightBrace, "Expected '}' after Sigil fields")?;
+                    Ok(Expression::SigilInstance { sigil_name, fields, line })
+                } else {
+                    Ok(Expression::Identifier(sigil_name))
+                }
             }
             TokenKind::LeftParen => {
                 self.advance();

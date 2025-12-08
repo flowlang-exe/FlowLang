@@ -1,0 +1,23 @@
+-- Test Working Sigils
+
+sigil Character {
+    name: Silk
+    level: Ember
+    active: Pulse
+}
+
+shout("creating character...")
+
+let hero = Character {
+    name: "Devil",
+    level: 42,
+    active: both!
+}
+
+shout("Character created: " + hero["name"])
+
+-- Test validation error (uncomment to test)
+-- let bad_hero = Character {
+--    name: "Glitch",
+--    level: "WrongType"  -- Should fail!
+-- }

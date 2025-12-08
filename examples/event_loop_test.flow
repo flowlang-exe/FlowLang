@@ -13,6 +13,6 @@ cast Spell tick() -> Hollow {
 
 let handle = timer.interval(1000, tick)
 
-wait 3s
+wait 10s
 timer.clear(handle)
 shout("✅ Test passed!")

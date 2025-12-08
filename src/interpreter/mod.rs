@@ -23,6 +23,8 @@ pub struct Interpreter {
     config: ProjectConfig,
     /// Runtime for event loop and handle management
     runtime: Arc<Runtime>,
+    /// Sigil definitions (name -> fields)
+    sigil_definitions: HashMap<String, Vec<SigilField>>,
 }
 
 impl Interpreter {
@@ -35,6 +37,7 @@ impl Interpreter {
             loading_stack: Vec::new(),
             config,
             runtime: Arc::new(Runtime::new()),
+            sigil_definitions: HashMap::new(),
         }
     }
     
@@ -47,6 +50,7 @@ impl Interpreter {
             loading_stack: Vec::new(),
             config,
             runtime: Arc::new(Runtime::new()),
+            sigil_definitions: HashMap::new(),
         }
     }
     
@@ -937,9 +941,8 @@ impl Interpreter {
             }
             
             // Sigil type definitions (stored for type checking but don't execute)
-            Statement::SigilDecl { name: _, fields: _, is_exported: _, line: _ } => {
-                // Sigil definitions are stored at parse time for type checking
-                // No runtime effect - they just define a type structure
+            Statement::SigilDecl { name, fields, is_exported: _, line: _ } => {
+                self.sigil_definitions.insert(name.clone(), fields.clone());
                 Ok(None)
             }
         }
@@ -1120,6 +1123,56 @@ impl Interpreter {
                     map.insert(key.clone(), val);
                 }
                 Ok(Value::Relic(Arc::new(map)))
+            }
+
+            // NEW: Evaluate Sigil Instantiation with Validation
+            Expression::SigilInstance { sigil_name, fields, line } => {
+                // 1. Check if sigil is defined
+                let sigil_def = self.sigil_definitions.get(sigil_name).cloned().ok_or_else(|| {
+                    FlowError::runtime(
+                        &format!("Unknown Sigil type: '{}'", sigil_name),
+                        *line,
+                        0
+                    )
+                })?;
+
+                // 2. Evaluate fields into a map
+                let mut instance_fields = HashMap::new();
+                for (key, value_expr) in fields {
+                    let val = self.evaluate_expression(value_expr).await?;
+                    instance_fields.insert(key.clone(), val);
+                }
+
+                // 3. Validate against definition
+                for field_def in sigil_def {
+                    let field_val = instance_fields.get(&field_def.name);
+                    
+                    match field_val {
+                        Some(val) => {
+                            // Check type compatibility
+                            if !self.check_type_compatibility(val, &field_def.field_type) {
+                                return Err(FlowError::type_error(
+                                    &format!(
+                                        "Field '{}' in Sigil '{}' expected type {:?}, but got {:?}",
+                                        field_def.name, sigil_name, field_def.field_type, val
+                                    ),
+                                    *line,
+                                    0
+                                ));
+                            }
+                        },
+                        None => {
+                            return Err(FlowError::type_error(
+                                &format!("Missing required field '{}' for Sigil '{}'", field_def.name, sigil_name),
+                                *line,
+                                0
+                            ));
+                        }
+                    }
+                }
+
+                // 4. Return as Relic (compatible with maps)
+                Ok(Value::Relic(Arc::new(instance_fields)))
             }
             
             Expression::Index { object, index } => {

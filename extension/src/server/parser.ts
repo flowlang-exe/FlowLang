@@ -930,14 +930,51 @@ export class Parser {
             return expr;
         }
 
-        // Identifier
+        // Identifier or Sigil Instantiation
         if (this.match(TokenType.Identifier)) {
             const token = this.previous();
-            return {
+            const identifier: Expression = {
                 type: 'Identifier',
                 name: token.value,
                 range: token.range,
             };
+
+            // Sigil Instantiation check: Identifier { ... }
+            if (this.check(TokenType.LBrace)) {
+                this.advance(); // consume {
+                const start = this.previous();
+                const entries: { key: string; value: Expression }[] = [];
+
+                if (!this.check(TokenType.RBrace)) {
+                    do {
+                        // Keys can be identifiers or strings
+                        let key: string;
+                        if (this.match(TokenType.Identifier)) {
+                            key = this.previous().value;
+                        } else if (this.match(TokenType.String)) {
+                            key = this.previous().value;
+                        } else {
+                            // Fallback or error
+                            this.error("Expected identifier or string key in Sigil");
+                            key = "error";
+                        }
+
+                        this.consume(TokenType.Colon, "Expected ':' after key");
+                        const value = this.parseExpression();
+                        entries.push({ key, value });
+                    } while (this.match(TokenType.Comma));
+                }
+
+                this.consume(TokenType.RBrace, "Expected '}' after Sigil entries");
+                return {
+                    type: 'SigilInstance',
+                    name: token.value,
+                    entries,
+                    range: { start: token.range.start, end: this.previous().range.end },
+                };
+            }
+
+            return identifier;
         }
 
         // Error fallback

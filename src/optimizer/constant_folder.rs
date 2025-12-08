@@ -200,6 +200,15 @@ impl ConstantFolder {
                 }
             }
 
+            // NEW: Sigil Instantiation
+            Expression::SigilInstance { sigil_name, fields, line } => {
+                Expression::SigilInstance {
+                    sigil_name,
+                    fields: fields.into_iter().map(|(k, v)| (k, self.fold_expression(v))).collect(),
+                    line,
+                }
+            }
+
             // Function calls
             Expression::Call { callee, arguments } => {
                 Expression::Call {

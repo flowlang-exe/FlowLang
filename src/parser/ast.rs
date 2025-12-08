@@ -237,6 +237,13 @@ pub enum Expression {
         body: InlineSpellBody,
         line: usize,
     },
+    
+    // NEW: Sigil Instantiation
+    SigilInstance {
+        sigil_name: String,
+        fields: Vec<(String, Expression)>,
+        line: usize,
+    },
 }
 
 // NEW: Body type for inline Spells

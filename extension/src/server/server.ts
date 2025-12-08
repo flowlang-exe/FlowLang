@@ -1057,6 +1057,19 @@ Access fields with \`hero.name\`, \`hero.level\``,
                 },
             };
         }
+        if (stmt.type === 'SigilDecl' && stmt.name === word) {
+            const fields = stmt.fields.map(f => {
+                const typeStr = formatType(f.typeAnnotation);
+                return `    ${f.name}: ${typeStr}`;
+            }).join('\n');
+
+            return {
+                contents: {
+                    kind: MarkupKind.Markdown,
+                    value: `**sigil** ${word} {\n${fields}\n}`,
+                },
+            };
+        }
     }
 
     return null;

@@ -188,7 +188,8 @@ export type Expression =
     | IndexExpr
     | MemberExpr
     | InlineSpell
-    | AwaitExpr;
+    | AwaitExpr
+    | SigilInstance;
 
 export interface Identifier extends ASTNode {
     type: 'Identifier';
@@ -281,4 +282,10 @@ export interface InlineSpell extends ASTNode {
 export interface AwaitExpr extends ASTNode {
     type: 'AwaitExpr';
     expression: Expression;
+}
+
+export interface SigilInstance extends ASTNode {
+    type: 'SigilInstance';
+    name: string;
+    entries: { key: string; value: Expression }[];
 }

@@ -172,6 +172,15 @@ impl SuperInstructionOptimizer {
                 }
             }
 
+            // NEW: Sigil Instantiation
+            Expression::SigilInstance { sigil_name, fields, line } => {
+                Expression::SigilInstance {
+                    sigil_name,
+                    fields: fields.into_iter().map(|(k, v)| (k, self.optimize_expression(v))).collect(),
+                    line,
+                }
+            }
+
             // Literals don't need optimization
             other => other,
         }

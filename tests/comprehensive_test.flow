@@ -13,7 +13,7 @@ shout("=== FlowLang Comprehensive Test Suite ===\n")
 shout("1. Testing Basic Types...")
 let num: Ember = 42
 let text: Silk = "Hello FlowLang"
-let flag: Pulse = true
+let flag: Pulse = True
 shout("✓ Numbers, Strings, Booleans work")
 
 -- Test 2: Arrays

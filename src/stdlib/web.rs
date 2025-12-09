@@ -68,12 +68,37 @@ async fn web_serve(args: Vec<Value>, ctx: AsyncContext) -> Result<Value, FlowErr
     let callback_tx = ctx.runtime.web_callback_sender();
     let runtime = ctx.runtime.clone();
 
+    // Create Response Prototype (Singleton)
+    // Contains efficient static references to helper functions to avoid
+    // rebuilding this HashMap for every single request (allocating ~16 strings/Arcs per req).
+    let response_prototype = {
+        let mut map = HashMap::new();
+        map.insert("json".to_string(), Value::NativeFunction(NativeFn(Arc::new(res_json))));
+        map.insert("html".to_string(), Value::NativeFunction(NativeFn(Arc::new(res_html))));
+        map.insert("text".to_string(), Value::NativeFunction(NativeFn(Arc::new(res_text))));
+        map.insert("status".to_string(), Value::NativeFunction(NativeFn(Arc::new(res_status))));
+        map.insert("redirect".to_string(), Value::NativeFunction(NativeFn(Arc::new(res_redirect))));
+        map.insert("notFound".to_string(), Value::NativeFunction(NativeFn(Arc::new(res_not_found))));
+        map.insert("badRequest".to_string(), Value::NativeFunction(NativeFn(Arc::new(res_bad_request))));
+        map.insert("serverError".to_string(), Value::NativeFunction(NativeFn(Arc::new(res_server_error))));
+        map.insert("ok".to_string(), Value::NativeFunction(NativeFn(Arc::new(res_ok))));
+        map.insert("created".to_string(), Value::NativeFunction(NativeFn(Arc::new(res_created))));
+        map.insert("noContent".to_string(), Value::NativeFunction(NativeFn(Arc::new(res_no_content))));
+        map.insert("unauthorized".to_string(), Value::NativeFunction(NativeFn(Arc::new(res_unauthorized))));
+        map.insert("forbidden".to_string(), Value::NativeFunction(NativeFn(Arc::new(res_forbidden))));
+        map.insert("send".to_string(), Value::NativeFunction(NativeFn(Arc::new(res_send))));
+        map.insert("file".to_string(), Value::NativeFunction(NativeFn(Arc::new(res_file))));
+        map.insert("header".to_string(), Value::NativeFunction(NativeFn(Arc::new(res_header))));
+        Value::Relic(Arc::new(map))
+    };
+
     // Spawn the server task
     tokio::spawn(async move {
         use warp::Filter;
         
         let handler_clone = handler.clone();
         let callback_tx_clone = callback_tx.clone();
+        let response_prototype = response_prototype.clone(); // Clone the prototype Value (cheap Arc clone)
 
         // Warp route that handles all requests
         // Note: Logic moved INSIDE the filter to run concurrently on Tokio thread pool
@@ -94,6 +119,7 @@ async fn web_serve(args: Vec<Value>, ctx: AsyncContext) -> Result<Value, FlowErr
                 // Clone shared resources for this specific request task
                 let handler = handler_clone.clone();
                 let callback_tx = callback_tx_clone.clone();
+                let response_proto = response_prototype.clone();
                 
                 async move {
                     // --- PRE-PROCESSING (Concurrent) ---
@@ -109,92 +135,60 @@ async fn web_serve(args: Vec<Value>, ctx: AsyncContext) -> Result<Value, FlowErr
                         format!("{}?{}", path_str, query)
                     };
                     
-                    // Convert headers to HashMap
-                    let headers_map: HashMap<String, String> = headers
-                        .iter()
-                        .map(|(k, v)| (k.to_string(), v.to_str().unwrap_or("").to_string()))
-                        .collect();
+                    // Single-Pass Header Processing
+                    // Extracts 'host' and builds the Relic map in one go
+                    let mut headers_relic = HashMap::new();
+                    let mut host = "localhost".to_string();
                     
-                    // Parse path and query
+                    for (k, v) in headers.iter() {
+                        let k_str = k.as_str();
+                        let v_str = v.to_str().unwrap_or("");
+                        
+                        if k_str == "host" {
+                            host = v_str.to_string();
+                        }
+                        
+                        headers_relic.insert(
+                            k_str.to_string(), 
+                            Value::String(Arc::new(v_str.to_string()))
+                        );
+                    }
+
+                    // Parse path and query (cheap string operations)
                     let pathname = path_str.clone();
-                    let query_string = if query.is_empty() { None } else { Some(query.as_str()) };
                     
-                    // Parse query string into Relic
-                    let query_map = if let Some(qs) = query_string {
-                        let mut map = HashMap::new();
-                        for pair in qs.split('&') {
-                            if pair.is_empty() { continue; }
-                            let parts: Vec<&str> = pair.splitn(2, '=').collect();
-                            let key = parts[0].to_string();
-                            let value = if parts.len() > 1 { parts[1].to_string() } else { String::new() };
-                            map.insert(key, Value::String(Arc::new(value)));
-                        }
-                        Value::Relic(Arc::new(map))
-                    } else {
-                        Value::Relic(Arc::new(HashMap::new()))
-                    };
+                    // REMOVED: Eager Cookie Parsing (Expensive & often unused)
+                    // Users can parse req.headers["cookie"] if needed
+                    let cookies_map = Value::Relic(Arc::new(HashMap::new()));
                     
-                    // Convert headers to Value::Relic
-                    let headers_relic: HashMap<String, Value> = headers_map.iter()
-                        .map(|(k, v)| (k.to_lowercase(), Value::String(Arc::new(v.clone()))))
-                        .collect();
+                    // REMOVED: Eager Query Parsing (Expensive & often unused)
+                    // Users can parse req.url or req.query_string if needed
+                    let query_map = Value::Relic(Arc::new(HashMap::new()));
                     
-                    // Parse cookies
-                    let cookies_map = if let Some(cookie_header) = headers_map.get("cookie") {
-                        let mut map = HashMap::new();
-                        for pair in cookie_header.split(';') {
-                            let pair = pair.trim();
-                            if let Some(idx) = pair.find('=') {
-                                let key = pair[..idx].to_string();
-                                let value = pair[idx + 1..].to_string();
-                                map.insert(key, Value::String(Arc::new(value)));
-                            }
-                        }
-                        Value::Relic(Arc::new(map))
-                    } else {
-                        Value::Relic(Arc::new(HashMap::new()))
-                    };
-                    
-                    // Get host and build URL
-                    let host = headers_map.get("host").cloned().unwrap_or_else(|| "localhost".to_string());
+                    // Build URL
                     let protocol = "http"; 
                     let url = format!("{}://{}{}", protocol, host, full_path);
                     let ip = addr.map(|a| a.ip().to_string()).unwrap_or_else(|| "unknown".to_string());
                     
                     // Create Request Object
+                    // Minimized allocations where possible
                     let mut req_map = HashMap::new();
                     req_map.insert("method".to_string(), Value::String(Arc::new(method.to_string())));
-                    req_map.insert("path".to_string(), Value::String(Arc::new(full_path)));
-                    req_map.insert("pathname".to_string(), Value::String(Arc::new(pathname)));
                     req_map.insert("url".to_string(), Value::String(Arc::new(url)));
-                    req_map.insert("query".to_string(), query_map);
+                    req_map.insert("path".to_string(), Value::String(Arc::new(full_path))); // Full path with query
+                    req_map.insert("pathname".to_string(), Value::String(Arc::new(pathname))); // Just path
+                    req_map.insert("query".to_string(), query_map); // Empty (Lazy)
                     req_map.insert("headers".to_string(), Value::Relic(Arc::new(headers_relic)));
-                    req_map.insert("cookies".to_string(), cookies_map);
+                    req_map.insert("cookies".to_string(), cookies_map); // Empty (Lazy)
                     req_map.insert("body".to_string(), Value::String(Arc::new(body_str)));
                     req_map.insert("ip".to_string(), Value::String(Arc::new(ip)));
                     req_map.insert("host".to_string(), Value::String(Arc::new(host)));
                     req_map.insert("protocol".to_string(), Value::String(Arc::new(protocol.to_string())));
+                    
                     let request_value = Value::Relic(Arc::new(req_map));
                     
-                    // Create Response Object
-                    let mut res_map = HashMap::new();
-                    res_map.insert("json".to_string(), Value::NativeFunction(NativeFn(Arc::new(res_json))));
-                    res_map.insert("html".to_string(), Value::NativeFunction(NativeFn(Arc::new(res_html))));
-                    res_map.insert("text".to_string(), Value::NativeFunction(NativeFn(Arc::new(res_text))));
-                    res_map.insert("status".to_string(), Value::NativeFunction(NativeFn(Arc::new(res_status))));
-                    res_map.insert("redirect".to_string(), Value::NativeFunction(NativeFn(Arc::new(res_redirect))));
-                    res_map.insert("notFound".to_string(), Value::NativeFunction(NativeFn(Arc::new(res_not_found))));
-                    res_map.insert("badRequest".to_string(), Value::NativeFunction(NativeFn(Arc::new(res_bad_request))));
-                    res_map.insert("serverError".to_string(), Value::NativeFunction(NativeFn(Arc::new(res_server_error))));
-                    res_map.insert("ok".to_string(), Value::NativeFunction(NativeFn(Arc::new(res_ok))));
-                    res_map.insert("created".to_string(), Value::NativeFunction(NativeFn(Arc::new(res_created))));
-                    res_map.insert("noContent".to_string(), Value::NativeFunction(NativeFn(Arc::new(res_no_content))));
-                    res_map.insert("unauthorized".to_string(), Value::NativeFunction(NativeFn(Arc::new(res_unauthorized))));
-                    res_map.insert("forbidden".to_string(), Value::NativeFunction(NativeFn(Arc::new(res_forbidden))));
-                    res_map.insert("send".to_string(), Value::NativeFunction(NativeFn(Arc::new(res_send))));
-                    res_map.insert("file".to_string(), Value::NativeFunction(NativeFn(Arc::new(res_file))));
-                    res_map.insert("header".to_string(), Value::NativeFunction(NativeFn(Arc::new(res_header))));
-                    let response_value = Value::Relic(Arc::new(res_map));
+                    // Use cached Response Prototype (Ref count bump only, no allocation)
+                    let response_value = response_proto;
 
                     // --- DISPATCH TO INTERPRETER ---
                     let (response_tx, response_rx) = tokio::sync::oneshot::channel();

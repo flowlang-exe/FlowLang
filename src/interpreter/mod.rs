@@ -297,8 +297,8 @@ impl Interpreter {
         Ok(())
     }
     
-    pub fn execute_statement<'a>(&'a mut self, stmt: &'a Statement) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Option<Value>, FlowError>> + 'a>> {
-        Box::pin(async move {
+    #[async_recursion::async_recursion(?Send)]
+    pub async fn execute_statement(&mut self, stmt: &Statement) -> Result<Option<Value>, FlowError> {
         match stmt {
             Statement::Let { name, type_annotation, value, is_exported, line } => {
                 let val = self.evaluate_expression(value).await?;
@@ -946,7 +946,6 @@ impl Interpreter {
                 Ok(None)
             }
         }
-        })
     }
     
     pub fn evaluate_expression<'a>(&'a mut self, expr: &'a Expression) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Value, FlowError>> + 'a>> {

@@ -10,40 +10,19 @@ shout("🚀 FlowLang Web Server")
 shout("━━━━━━━━━━━━━━━━━━━━━━")
 shout("")
 
--- In-memory data
-let users = [
-    {"id": 1, "name": "Goku", "power": 9000},
-    {"id": 2, "name": "Vegeta", "power": 8500},
-    {"id": 3, "name": "Naruto", "power": 7500}
-]
-
 -- Request handler
-cast Spell handler(req) -> Hollow {
+cast Spell handler(req, res) -> Hollow {
     -- Parse the URL to get query params
-    let parsed = url.parse("http://localhost" + req.path)
-    let path = parsed.pathname
-    let query = parsed.query
+    let path = req.path
+    let query = req.query
     
     shout("📨 " + req.method + " " + path)
     
     -- Simple routing (user handles manually)
     in Stance (path is~ "/") {
-        shout("   → Homepage")
-    }
-    
-    in Stance (path is~ "/api/users") {
-        shout("   → Users API")
-        shout("   → Returning " + users.len() + " users")
-    }
-    
-    in Stance (path is~ "/api/health") {
-        shout("   → Health check: OK")
-    }
-    
-    in Stance (path is~ "/test") {
-        shout("   → Test endpoint")
-        -- Show query params
-        shout("   → Query: " + json.stringify(query))
+        res.json({
+            "Greetings" : "hello World"
+      })
     }
 }
 
@@ -51,9 +30,6 @@ cast Spell handler(req) -> Hollow {
 shout("🌐 Server: http://localhost:3000")
 shout("📡 Endpoints:")
 shout("   GET /           - Homepage")
-shout("   GET /api/users  - List users")
-shout("   GET /api/health - Health check")
-shout("   GET /test?id=1  - Test with query")
 shout("")
 shout("Press Ctrl+C to stop")
 shout("")

@@ -11,19 +11,19 @@ shout("━━━━━━━━━━━━━━━━━━━━━━")
 shout("")
 
 -- Request handler
-cast Spell handler(req, res) -> Hollow {
-    -- Parse the URL to get query params
+
+-- Request handler
+cast Spell handler(req, res) -> Relic<Flux, Flux> {
     let path = req.path
-    let query = req.query
     
     shout("📨 " + req.method + " " + path)
     
-    -- Simple routing (user handles manually)
+    -- Simple routing
     in Stance (path is~ "/") {
-        res.json({
-            "Greetings" : "hello World"
-      })
+        return res.json("Hello World")
     }
+    
+    return res.notFound()
 }
 
 -- Start server

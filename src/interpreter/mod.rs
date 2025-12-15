@@ -18,6 +18,7 @@ pub struct Interpreter {
     env: Environment,
     module_cache: HashMap<String, Environment>,
     current_dir: PathBuf,
+    project_root: PathBuf,  // Project root (where config.flowlang.json lives)
     current_file: String,  // Track current file for error reporting
     loading_stack: Vec<String>,  // Track module loading chain for circular dependency detection
     config: ProjectConfig,
@@ -29,10 +30,12 @@ pub struct Interpreter {
 
 impl Interpreter {
     pub fn new(config: ProjectConfig) -> Self {
+        let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
         Interpreter {
             env: Environment::new(),
             module_cache: HashMap::new(),
-            current_dir: std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")),
+            current_dir: cwd.clone(),
+            project_root: cwd,
             current_file: "main.flow".to_string(),
             loading_stack: Vec::new(),
             config,
@@ -42,10 +45,12 @@ impl Interpreter {
     }
     
     pub fn with_dir(dir: PathBuf, config: ProjectConfig) -> Self {
+        let project_root = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
         Interpreter {
             env: Environment::new(),
             module_cache: HashMap::new(),
             current_dir: dir,
+            project_root,
             current_file: "module.flow".to_string(),
             loading_stack: Vec::new(),
             config,
@@ -159,6 +164,156 @@ impl Interpreter {
                         0, 0
                     ));
                 }
+            }
+            
+            // Check for pkg: import (packages from config.flowlang.json)
+            if path.starts_with("pkg:") {
+                let pkg_alias = &path[4..];
+                
+                // Resolve package path from config
+                let pkg_path = self.config.packages.get(pkg_alias)
+                    .ok_or_else(|| FlowError::runtime(
+                        &format!("Package '{}' not found in config.flowlang.json. Run 'flowlang add <package>' first.", pkg_alias),
+                        0, 0
+                    ))?;
+                
+                // Parse spec to get local path
+                let spec = crate::package_manager::PackageSpec::parse(pkg_path)?;
+                let pkg_dir = self.project_root.join(".flowlang").join("pkg").join(spec.local_path());
+                
+                if !pkg_dir.exists() {
+                    return Err(FlowError::runtime(
+                        &format!("Package '{}' not installed. Run 'flowlang install' first.", pkg_alias),
+                        0, 0
+                    ));
+                }
+                
+                // Load package config to get entry point
+                let pkg_config_path = pkg_dir.join("config.flowlang.json");
+                let pkg_config = if pkg_config_path.exists() {
+                    crate::config::ProjectConfig::load(&pkg_config_path)?
+                } else {
+                    crate::config::ProjectConfig::default()
+                };
+                
+                // Build path to entry file
+                let entry_path = pkg_dir.join(&pkg_config.entry);
+                
+                if !entry_path.exists() {
+                    return Err(FlowError::runtime(
+                        &format!("Package entry file not found: {}", entry_path.display()),
+                        0, 0
+                    ));
+                }
+                
+                // Load and execute the package module
+                let module_key = entry_path.to_string_lossy().to_string();
+                
+                if !self.module_cache.contains_key(&module_key) {
+                    let source = fs::read_to_string(&entry_path).map_err(|e| {
+                        FlowError::runtime(
+                            &format!("Failed to read package '{}': {}", pkg_alias, e),
+                            0, 0
+                        )
+                    })?;
+                    
+                    let tokens = crate::lexer::tokenize(&source)?;
+                    let ast = crate::parser::parse(tokens)?;
+                    
+                    let module_dir = entry_path.parent().unwrap().to_path_buf();
+                    let mut module_interpreter = Interpreter::with_dir(module_dir, pkg_config);
+                    module_interpreter.current_file = entry_path.file_name()
+                        .and_then(|n| n.to_str())
+                        .unwrap_or("main.flow")
+                        .to_string();
+                    
+                    module_interpreter.execute(ast).await?;
+                    self.module_cache.insert(module_key.clone(), module_interpreter.env);
+                }
+                
+                // Import symbols
+                let module_env = self.module_cache.get(&module_key).unwrap();
+                let alias = import.alias.clone().unwrap_or(import.module.clone());
+                
+                let public_vars = module_env.get_all_public();
+                let mut module_map = HashMap::new();
+                for (name, value) in public_vars {
+                    module_map.insert(name, value);
+                }
+                
+                let relic = Value::Relic(Arc::new(module_map));
+                self.env.define(alias, relic, false);
+                return Ok(());
+            }
+            
+            // Check for direct URL import (github.com/user/repo@ref)
+            if path.starts_with("github.com/") || path.starts_with("gitlab.com/") || path.starts_with("bitbucket.org/") {
+                let spec = crate::package_manager::PackageSpec::parse(path)?;
+                let pkg_dir = self.project_root.join(".flowlang").join("pkg").join(spec.local_path());
+                
+                // Auto-install if not present
+                if !pkg_dir.exists() {
+                    println!("📦 Auto-installing {}...", path);
+                    let pm = crate::package_manager::PackageManager::new(self.project_root.clone());
+                    pm.fetch_package(&spec)?;
+                }
+                
+                // Load package config to get entry point
+                let pkg_config_path = pkg_dir.join("config.flowlang.json");
+                let pkg_config = if pkg_config_path.exists() {
+                    crate::config::ProjectConfig::load(&pkg_config_path)?
+                } else {
+                    crate::config::ProjectConfig::default()
+                };
+                
+                // Build path to entry file
+                let entry_path = pkg_dir.join(&pkg_config.entry);
+                
+                if !entry_path.exists() {
+                    return Err(FlowError::runtime(
+                        &format!("Package entry file not found: {}", entry_path.display()),
+                        0, 0
+                    ));
+                }
+                
+                // Load and execute the package module
+                let module_key = entry_path.to_string_lossy().to_string();
+                
+                if !self.module_cache.contains_key(&module_key) {
+                    let source = fs::read_to_string(&entry_path).map_err(|e| {
+                        FlowError::runtime(
+                            &format!("Failed to read package: {}", e),
+                            0, 0
+                        )
+                    })?;
+                    
+                    let tokens = crate::lexer::tokenize(&source)?;
+                    let ast = crate::parser::parse(tokens)?;
+                    
+                    let module_dir = entry_path.parent().unwrap().to_path_buf();
+                    let mut module_interpreter = Interpreter::with_dir(module_dir, pkg_config);
+                    module_interpreter.current_file = entry_path.file_name()
+                        .and_then(|n| n.to_str())
+                        .unwrap_or("main.flow")
+                        .to_string();
+                    
+                    module_interpreter.execute(ast).await?;
+                    self.module_cache.insert(module_key.clone(), module_interpreter.env);
+                }
+                
+                // Import symbols
+                let module_env = self.module_cache.get(&module_key).unwrap();
+                let alias = import.alias.clone().unwrap_or(import.module.clone());
+                
+                let public_vars = module_env.get_all_public();
+                let mut module_map = HashMap::new();
+                for (name, value) in public_vars {
+                    module_map.insert(name, value);
+                }
+                
+                let relic = Value::Relic(Arc::new(module_map));
+                self.env.define(alias, relic, false);
+                return Ok(());
             }
         }
 

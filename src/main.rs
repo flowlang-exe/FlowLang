@@ -9,6 +9,7 @@ mod config;
 mod cache;
 mod optimizer;
 mod runtime;
+mod package_manager;
 
 use clap::{Parser, Subcommand};
 use colored::*;
@@ -207,7 +208,7 @@ async fn run_init(name: String) {
 
 shout("✨ The Flow has begun!")
 
-cast Spell greet(name) {
+cast Spell greet(Silk name) -> Silk {
     return "Hello, " + name + "!"
 }
 
@@ -243,6 +244,100 @@ fn print_banner() {
     println!("{}", "║  A Mystical Anime Scripting Language ║".bright_magenta());
     println!("{}", "╚═══════════════════════════════════════╝".bright_magenta());
     println!();
+}
+
+async fn run_install(verbose: bool) {
+    let config_path = PathBuf::from("config.flowlang.json");
+    
+    if !config_path.exists() {
+        eprintln!("{}", "❌ No config.flowlang.json found. Run 'flowlang init' first.".red().bold());
+        return;
+    }
+    
+    let config = match config::ProjectConfig::load(&config_path) {
+        Ok(c) => c,
+        Err(e) => {
+            error::print_error(&e);
+            return;
+        }
+    };
+    
+    if config.packages.is_empty() {
+        println!("{}", "📦 No packages to install.".yellow());
+        return;
+    }
+    
+    println!("{}", "📦 Installing packages...".bright_cyan().bold());
+    
+    let project_root = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+    let pm = package_manager::PackageManager::new(project_root);
+    
+    match pm.install_all(&config) {
+        Ok(installed) => {
+            println!();
+            println!("{} {} package(s) installed.", "✅".green(), installed.len());
+            if verbose {
+                for (alias, path) in &installed {
+                    println!("   {} -> {}", alias.bright_cyan(), path.display());
+                }
+            }
+        }
+        Err(e) => {
+            error::print_error(&e);
+        }
+    }
+}
+
+async fn run_add(package: String, alias: Option<String>, _verbose: bool) {
+    let config_path = PathBuf::from("config.flowlang.json");
+    
+    if !config_path.exists() {
+        eprintln!("{}", "❌ No config.flowlang.json found. Run 'flowlang init' first.".red().bold());
+        return;
+    }
+    
+    // Parse package URL to get repo name for default alias
+    let spec = match package_manager::PackageSpec::parse(&package) {
+        Ok(s) => s,
+        Err(e) => {
+            error::print_error(&e);
+            return;
+        }
+    };
+    
+    let pkg_alias = alias.unwrap_or_else(|| spec.repo.clone());
+    
+    // Load and update config
+    let mut config = match config::ProjectConfig::load(&config_path) {
+        Ok(c) => c,
+        Err(e) => {
+            error::print_error(&e);
+            return;
+        }
+    };
+    
+    if config.packages.contains_key(&pkg_alias) {
+        println!("{} Package '{}' already exists in config.", "⚠️".yellow(), pkg_alias);
+        return;
+    }
+    
+    config.packages.insert(pkg_alias.clone(), package.clone());
+    
+    // Save config
+    if let Err(e) = config.save(&config_path) {
+        error::print_error(&e);
+        return;
+    }
+    
+    println!("{} Added '{}' -> '{}'", "✅".green(), pkg_alias.bright_cyan(), package);
+    
+    // Install the package
+    let project_root = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+    let pm = package_manager::PackageManager::new(project_root);
+    
+    if let Err(e) = pm.fetch_package(&spec) {
+        error::print_error(&e);
+    }
 }
 
 async fn run_file(path: PathBuf, config: config::ProjectConfig, verbose: bool, trace: bool, trace_depth: usize, trace_raw: bool) {

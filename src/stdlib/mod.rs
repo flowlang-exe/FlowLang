@@ -15,6 +15,8 @@ pub mod web;
 pub mod url;
 pub mod stream;
 pub mod path;
+pub mod process;
+pub mod git;
 
 use std::collections::HashMap;
 
@@ -113,6 +115,20 @@ pub fn load_module(name: &str) -> Option<HashMap<String, Value>> {
         "path" => {
             let mut map = HashMap::new();
             for (key, value) in path::load_path_module() {
+                map.insert(key.to_string(), value);
+            }
+            Some(map)
+        }
+        "process" => {
+            let mut map = HashMap::new();
+            for (key, value) in process::load_process_module() {
+                map.insert(key.to_string(), value);
+            }
+            Some(map)
+        }
+        "git" => {
+            let mut map = HashMap::new();
+            for (key, value) in git::load_git_module() {
                 map.insert(key.to_string(), value);
             }
             Some(map)

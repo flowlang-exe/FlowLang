@@ -1,0 +1,34 @@
+-- Test std:process and std:git modules
+circle proc from "std:process"
+circle git from "std:git"
+circle color from "std:color"
+
+shout(color.bright_cyan("🔧 Testing std:process module"))
+shout("")
+
+-- Test exec()
+shout(color.yellow("1. Testing proc.exec():"))
+let result = proc.exec("echo Hello from FlowLang!")
+shout("   Output: " + result)
+
+-- Test output() - captures everything
+shout("")
+shout(color.yellow("2. Testing proc.output():"))
+let out = proc.output("git", ["--version"])
+shout("   stdout: " + out.stdout)
+shout("   code: " + out.code)
+shout("   success: " + out.success)
+
+shout("")
+shout(color.bright_cyan("🔧 Testing std:git module"))
+shout("")
+
+-- Test git.status on current directory
+shout(color.yellow("3. Testing git.status():"))
+let status = git.status(".")
+shout("   branch: " + status.branch)
+shout("   dirty: " + status.dirty)
+shout("   files: " + status.files.len() + " changed")
+
+shout("")
+shout(color.bright_green("✅ All tests passed!"))

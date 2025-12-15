@@ -317,14 +317,7 @@ fn res_json(args: Vec<Value>) -> Result<Value, FlowError> {
         return Err(FlowError::runtime("web.json expects 1 argument (data)", 0, 0));
     }
 
-    let body = match &args[0] {
-        Value::Relic(_) | Value::Array(_) => {
-            // Serialize to JSON string
-            crate::stdlib::json::value_to_json_string(&args[0])
-        }
-        Value::String(s) => (**s).clone(),
-        _ => args[0].to_string(),
-    };
+    let body = crate::stdlib::json::value_to_json_string(&args[0]);
 
     let mut map = HashMap::new();
     map.insert("status".to_string(), Value::Number(200.0));

@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::Path;
+use std::collections::HashMap;
 use crate::error::FlowError;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -8,9 +9,12 @@ pub struct ProjectConfig {
     pub name: String,
     pub version: String,
     pub entry: String,
+    #[serde(default)]
     pub authors: Vec<String>,
     #[serde(default)]
     pub type_required: bool,
+    #[serde(default)]
+    pub packages: HashMap<String, String>, // alias -> "github.com/user/repo@ref"
 }
 
 impl Default for ProjectConfig {
@@ -21,6 +25,7 @@ impl Default for ProjectConfig {
             entry: "src/main.flow".to_string(),
             authors: vec![],
             type_required: false,
+            packages: HashMap::new(),
         }
     }
 }

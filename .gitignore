@@ -1,5 +1,4 @@
 target
-.flowlang
 node_modules
 notes.json
 .git
@@ -8,4 +7,4 @@ out
 flowlang.md
 flora
 arch.md
-myapp
+result

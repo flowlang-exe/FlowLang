@@ -1,0 +1,20 @@
+{
+  "packages": {
+    "utils": {
+      "name": "utils",
+      "version": "1.0.0",
+      "url": "github.com/flowlang-exe/utils@main",
+      "git_ref": "main",
+      "dependencies": []
+    },
+    "module": {
+      "name": "module",
+      "version": "1.0.0",
+      "url": "github.com/flowlang-exe/module@main",
+      "git_ref": "main",
+      "dependencies": [
+        "utils"
+      ]
+    }
+  }
+}

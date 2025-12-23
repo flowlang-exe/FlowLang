@@ -4,7 +4,7 @@ pub mod string;
 pub mod array;
 pub mod file;
 pub mod json;
-pub mod net;
+pub mod requesty;
 pub mod time;
 pub mod cli;
 pub mod color;
@@ -42,13 +42,7 @@ pub fn load_module(name: &str) -> Option<HashMap<String, Value>> {
             }
             Some(map)
         }
-        "net" => {
-            let mut map = HashMap::new();
-            for (key, value) in net::load_net_module() {
-                map.insert(key.to_string(), value);
-            }
-            Some(map)
-        }
+
         "time" => {
             let mut map = HashMap::new();
             for (key, value) in time::load_time_module() {
@@ -129,6 +123,13 @@ pub fn load_module(name: &str) -> Option<HashMap<String, Value>> {
         "git" => {
             let mut map = HashMap::new();
             for (key, value) in git::load_git_module() {
+                map.insert(key.to_string(), value);
+            }
+            Some(map)
+        }
+        "requesty" => {
+            let mut map = HashMap::new();
+            for (key, value) in requesty::load_requesty_module() {
                 map.insert(key.to_string(), value);
             }
             Some(map)

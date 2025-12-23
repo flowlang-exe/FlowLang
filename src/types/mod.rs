@@ -116,6 +116,8 @@ pub enum Value {
         return_type: Option<EssenceType>,
         body: Arc<Vec<crate::parser::ast::Statement>>,
         is_async: bool,
+        /// Captured environment for closures - module-level bindings at definition time
+        closure: Option<Arc<HashMap<String, Value>>>,
     },
     NativeFunction(NativeFn),
     /// Async native function that has access to the runtime

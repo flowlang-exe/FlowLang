@@ -1,7 +1,7 @@
-//! FlowLang Runtime - Event Loop and Handle Management
+//! FlowLang Runtime - Event Loop with Concurrent Web Handler Processing
 //!
-//! This module provides a Node.js-style event loop that keeps the process
-//! running while there are active handles (servers, timers, etc.)
+//! Key optimization: Process web callbacks concurrently using a worker pool
+//! instead of sequentially through a single interpreter lock
 
 pub mod handle;
 
@@ -9,7 +9,7 @@ use handle::{HandleId, HandleRegistry, HandleType};
 use crate::types::Value;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
-use tokio::sync::{Mutex, mpsc, oneshot};
+use tokio::sync::{Mutex, mpsc, oneshot, Semaphore};
 use colored::Colorize;
 
 /// Callback request sent from async tasks to the main event loop
@@ -26,6 +26,21 @@ pub struct WebCallbackRequest {
     pub response_tx: oneshot::Sender<Value>,
 }
 
+/// Configuration for the runtime
+pub struct RuntimeConfig {
+    /// Maximum concurrent web request handlers
+    pub max_concurrent_web_handlers: usize,
+}
+
+impl Default for RuntimeConfig {
+    fn default() -> Self {
+        RuntimeConfig {
+            // Match the benchmark's connection count for optimal throughput
+            max_concurrent_web_handlers: 250,
+        }
+    }
+}
+
 /// The FlowLang Runtime manages the event loop and active handles
 pub struct Runtime {
     /// Registry of all active handles
@@ -40,11 +55,18 @@ pub struct Runtime {
     web_callback_tx: mpsc::UnboundedSender<WebCallbackRequest>,
     /// Channel receiver for web callback requests
     web_callback_rx: Arc<Mutex<mpsc::UnboundedReceiver<WebCallbackRequest>>>,
+    /// Semaphore to limit concurrent web handler execution
+    web_handler_semaphore: Arc<Semaphore>,
 }
 
 impl Runtime {
-    /// Create a new Runtime instance
+    /// Create a new Runtime instance with default config
     pub fn new() -> Self {
+        Self::with_config(RuntimeConfig::default())
+    }
+    
+    /// Create a new Runtime instance with custom config
+    pub fn with_config(config: RuntimeConfig) -> Self {
         let (tx, rx) = mpsc::unbounded_channel();
         let (web_tx, web_rx) = mpsc::unbounded_channel();
         Runtime {
@@ -54,6 +76,7 @@ impl Runtime {
             callback_rx: Arc::new(Mutex::new(rx)),
             web_callback_tx: web_tx,
             web_callback_rx: Arc::new(Mutex::new(web_rx)),
+            web_handler_semaphore: Arc::new(Semaphore::new(config.max_concurrent_web_handlers)),
         }
     }
     
@@ -77,10 +100,31 @@ impl Runtime {
         self.shutdown.clone()
     }
     
+    /// Get the web handler semaphore for controlling concurrency
+    pub fn web_handler_semaphore(&self) -> Arc<Semaphore> {
+        self.web_handler_semaphore.clone()
+    }
+    
     /// Process web callbacks (returns callback with its response channel)
+    /// This now supports concurrent processing via the semaphore
     pub async fn get_web_callback(&self) -> Option<WebCallbackRequest> {
         let mut rx = self.web_callback_rx.lock().await;
         rx.try_recv().ok()
+    }
+    
+    /// Get web callback with semaphore acquisition (for concurrent processing)
+    /// Returns (permit, request) where permit must be held during execution
+    pub async fn get_web_callback_with_permit(&self) -> Option<(tokio::sync::SemaphorePermit<'_>, WebCallbackRequest)> {
+        // Try to get a request first (non-blocking)
+        let request = {
+            let mut rx = self.web_callback_rx.lock().await;
+            rx.try_recv().ok()?
+        };
+        
+        // Acquire a permit (this may block if at max concurrency)
+        let permit = self.web_handler_semaphore.acquire().await.ok()?;
+        
+        Some((permit, request))
     }
     
     /// Register a new handle and return its ID
@@ -191,7 +235,67 @@ impl Clone for Runtime {
             callback_rx: self.callback_rx.clone(),
             web_callback_tx: self.web_callback_tx.clone(),
             web_callback_rx: self.web_callback_rx.clone(),
+            web_handler_semaphore: self.web_handler_semaphore.clone(),
         }
     }
 }
 
+// ============================================================================
+// USAGE EXAMPLE: How to process web callbacks concurrently
+// ============================================================================
+
+/*
+In your main interpreter loop, instead of:
+
+```rust
+// OLD WAY - Sequential processing (slow!)
+while let Some(web_req) = runtime.get_web_callback().await {
+    let result = interpreter.eval_function(&web_req.callback, &web_req.args)?;
+    let _ = web_req.response_tx.send(result);
+}
+```
+
+Do this:
+
+```rust
+// NEW WAY - Concurrent processing (fast!)
+while let Some(web_req) = runtime.get_web_callback().await {
+    let interpreter_clone = interpreter.clone(); // Or use Arc<Interpreter>
+    tokio::spawn(async move {
+        // Acquire permit to limit concurrency
+        let _permit = runtime.web_handler_semaphore().acquire().await.ok()?;
+        
+        // Process in parallel
+        let result = interpreter_clone.eval_function(&web_req.callback, &web_req.args)?;
+        let _ = web_req.response_tx.send(result);
+    });
+}
+```
+
+Or even better, use a dedicated worker pool that polls for requests:
+
+```rust
+// Spawn worker tasks at startup
+for _ in 0..num_cpus::get() {
+    let runtime = runtime.clone();
+    let interpreter = interpreter.clone();
+    
+    tokio::spawn(async move {
+        loop {
+            // This will block until a request is available
+            let Some(web_req) = runtime.get_web_callback().await else {
+                break;
+            };
+            
+            // Process the request (semaphore limits concurrency)
+            let _permit = runtime.web_handler_semaphore().acquire().await.ok();
+            let result = interpreter.eval_function(&web_req.callback, &web_req.args);
+            
+            if let Ok(result) = result {
+                let _ = web_req.response_tx.send(result);
+            }
+        }
+    });
+}
+```
+*/

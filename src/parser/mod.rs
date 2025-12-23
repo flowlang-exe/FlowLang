@@ -1059,37 +1059,65 @@ impl Parser {
                 let line = self.peek().line;
                 self.advance();
                 
-                // NEW: Check for Sigil Instantiation: Identifier { ... }
-                if self.check(&TokenKind::LeftBrace) {
+                // Check for Sigil Instantiation: Identifier { key: value, ... }
+                // Only treat as SigilInstance if:
+                // 1. The '{' is on the SAME line as the identifier (to avoid consuming block braces)
+                // 2. AND after '{', we see 'identifier :' pattern (not 'identifier =')
+                if self.check(&TokenKind::LeftBrace) && self.peek().line == line {
+                    // Look ahead to confirm this is actually a Sigil instantiation
+                    // by checking if we have 'identifier :' pattern after '{'
+                    let brace_pos = self.current;
                     self.advance(); // consume '{'
-                    let mut fields = Vec::new();
                     
-                    if !self.check(&TokenKind::RightBrace) {
-                        loop {
-                            let key = if let TokenKind::Identifier(s) = &self.peek().kind {
-                                s.clone()
-                            } else {
-                                return Err(FlowError::syntax(
-                                    "Expected identifier key in Sigil instantiation!",
-                                    self.peek().line,
-                                    self.peek().column,
-                                ));
-                            };
-                            self.advance();
-                            
-                            self.expect(&TokenKind::Colon, "Expected ':' after field name")?;
-                            let val = self.parse_expression()?;
-                            
-                            fields.push((key, val));
-                            
-                            if !self.match_token(&TokenKind::Comma) {
-                                break;
+                    let is_sigil_instance = if self.check(&TokenKind::RightBrace) {
+                        // Empty braces {} - treat as empty SigilInstance
+                        true
+                    } else if let TokenKind::Identifier(_) = &self.peek().kind {
+                        // Check if next token after identifier is ':'
+                        let id_pos = self.current;
+                        self.advance(); // consume identifier
+                        let has_colon = self.check(&TokenKind::Colon);
+                        self.current = id_pos; // restore position
+                        has_colon
+                    } else {
+                        false
+                    };
+                    
+                    if is_sigil_instance {
+                        // Parse as Sigil Instantiation
+                        let mut fields = Vec::new();
+                        
+                        if !self.check(&TokenKind::RightBrace) {
+                            loop {
+                                let key = if let TokenKind::Identifier(s) = &self.peek().kind {
+                                    s.clone()
+                                } else {
+                                    return Err(FlowError::syntax(
+                                        "Expected identifier key in Sigil instantiation!",
+                                        self.peek().line,
+                                        self.peek().column,
+                                    ));
+                                };
+                                self.advance();
+                                
+                                self.expect(&TokenKind::Colon, "Expected ':' after field name")?;
+                                let val = self.parse_expression()?;
+                                
+                                fields.push((key, val));
+                                
+                                if !self.match_token(&TokenKind::Comma) {
+                                    break;
+                                }
                             }
                         }
+                        
+                        self.expect(&TokenKind::RightBrace, "Expected '}' after Sigil fields")?;
+                        Ok(Expression::SigilInstance { sigil_name, fields, line })
+                    } else {
+                        // Not a Sigil instantiation, backtrack and return just the identifier
+                        self.current = brace_pos;
+                        Ok(Expression::Identifier(sigil_name))
                     }
-                    
-                    self.expect(&TokenKind::RightBrace, "Expected '}' after Sigil fields")?;
-                    Ok(Expression::SigilInstance { sigil_name, fields, line })
                 } else {
                     Ok(Expression::Identifier(sigil_name))
                 }

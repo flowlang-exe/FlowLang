@@ -95,4 +95,23 @@ impl Environment {
         
         all_vars
     }
+    
+    /// Get the current scope depth (0 = only global scope)
+    pub fn scope_depth(&self) -> usize {
+        self.scopes.len().saturating_sub(1)
+    }
+    
+    /// Get all visible variables from all scopes (for closure capture)
+    pub fn get_all_visible(&self) -> HashMap<String, Value> {
+        let mut visible = HashMap::new();
+        
+        // Iterate from outer to inner scope so inner values override outer
+        for scope in self.scopes.iter() {
+            for (name, (value, _, _)) in scope {
+                visible.insert(name.clone(), value.clone());
+            }
+        }
+        
+        visible
+    }
 }

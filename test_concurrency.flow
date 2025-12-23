@@ -1,0 +1,18 @@
+circle web from "std:web"
+circle time from "std:time"
+
+shout("🚀 Starting Concurrent Server on 8080...")
+
+web.get("/slow", cast(req) {
+    shout("🐢 Slow request started...")
+    time.sleep(2000) -- Sleep 2 seconds
+    shout("🐢 Slow request finished!")
+    return "Done"
+})
+
+web.get("/fast", cast(req) {
+    shout("🐇 Fast request!")
+    return "Fast"
+})
+
+web.serve(8080)

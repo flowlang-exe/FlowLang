@@ -1,0 +1,22 @@
+circle web from "std:web"
+
+cast Spell handler(req, res) -> Relic<Flux, Flux> {
+    let path = req.path
+    
+    in Stance (path is~ "/slow") {
+        shout("🐢 Start Slow")
+        wait 9s
+        shout("🐢 End Slow")
+        return res.json({ "body": "Slow" })
+    }
+    
+    in Stance (path is~ "/fast") {
+        shout("🐇 Fast")
+        return res.json({ "body": "Fast" })
+    }
+    
+    return res.notFound()
+}
+
+shout("Starting test server on 8080...")
+web.serve(8080, handler)

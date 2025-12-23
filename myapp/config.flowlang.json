@@ -1,0 +1,10 @@
+{
+  "name": "my-flow-project",
+  "version": "0.1.0",
+  "entry": "src/main.flow",
+  "authors": [],
+  "type_required": false,
+  "packages": {
+    "module": "github.com/flowlang-exe/module@main"
+  }
+}

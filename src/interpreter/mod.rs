@@ -14,9 +14,10 @@ use std::sync::Arc;
 
 use crate::config::ProjectConfig;
 
+#[derive(Clone)]
 pub struct Interpreter {
     env: Environment,
-    module_cache: HashMap<String, Environment>,
+    module_cache: Arc<tokio::sync::Mutex<HashMap<String, Environment>>>,
     current_dir: PathBuf,
     project_root: PathBuf,  // Project root (where config.flowlang.json lives)
     current_file: String,  // Track current file for error reporting
@@ -25,7 +26,7 @@ pub struct Interpreter {
     /// Runtime for event loop and handle management
     runtime: Arc<Runtime>,
     /// Sigil definitions (name -> fields)
-    sigil_definitions: HashMap<String, Vec<SigilField>>,
+    sigil_definitions: Arc<tokio::sync::Mutex<HashMap<String, Vec<SigilField>>>>,
 }
 
 impl Interpreter {
@@ -33,14 +34,14 @@ impl Interpreter {
         let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
         Interpreter {
             env: Environment::new(),
-            module_cache: HashMap::new(),
+            module_cache: Arc::new(tokio::sync::Mutex::new(HashMap::new())),
             current_dir: cwd.clone(),
             project_root: cwd,
             current_file: "main.flow".to_string(),
             loading_stack: Vec::new(),
             config,
             runtime: Arc::new(Runtime::new()),
-            sigil_definitions: HashMap::new(),
+            sigil_definitions: Arc::new(tokio::sync::Mutex::new(HashMap::new())),
         }
     }
     
@@ -48,14 +49,14 @@ impl Interpreter {
         let project_root = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
         Interpreter {
             env: Environment::new(),
-            module_cache: HashMap::new(),
+            module_cache: Arc::new(tokio::sync::Mutex::new(HashMap::new())),
             current_dir: dir,
             project_root,
             current_file: "module.flow".to_string(),
             loading_stack: Vec::new(),
             config,
             runtime: Arc::new(Runtime::new()),
-            sigil_definitions: HashMap::new(),
+            sigil_definitions: Arc::new(tokio::sync::Mutex::new(HashMap::new())),
         }
     }
     
@@ -68,9 +69,16 @@ impl Interpreter {
     /// Useful for calling FlowLang handlers from native code (e.g., web server)
     pub async fn execute_function(&mut self, func: Value, args: Vec<Value>) -> Result<Value, FlowError> {
         match func {
-            Value::Function { params, body, .. } => {
+            Value::Function { params, body, closure, .. } => {
                 // Push new scope for function
                 self.env.push_scope();
+                
+                // Restore closure bindings if present (for module-level imports)
+                if let Some(ref captured) = closure {
+                    for (name, value) in captured.iter() {
+                        self.env.define(name.clone(), value.clone(), true);
+                    }
+                }
                 
                 // Bind parameters
                 for (param, arg) in params.iter().zip(args.iter()) {
@@ -209,7 +217,10 @@ impl Interpreter {
                 // Load and execute the package module
                 let module_key = entry_path.to_string_lossy().to_string();
                 
-                if !self.module_cache.contains_key(&module_key) {
+                // Check cache first with lock
+                let needs_load = !self.module_cache.lock().await.contains_key(&module_key);
+                
+                if needs_load {
                     let source = fs::read_to_string(&entry_path).map_err(|e| {
                         FlowError::runtime(
                             &format!("Failed to read package '{}': {}", pkg_alias, e),
@@ -227,12 +238,20 @@ impl Interpreter {
                         .unwrap_or("main.flow")
                         .to_string();
                     
+                    // Share the cache state!
+                    module_interpreter.module_cache = self.module_cache.clone();
+                    module_interpreter.sigil_definitions = self.sigil_definitions.clone();
+
+                    // Inherit parent's project_root for pkg: resolution in nested dependencies
+                    module_interpreter.project_root = self.project_root.clone();
+                    
                     module_interpreter.execute(ast).await?;
-                    self.module_cache.insert(module_key.clone(), module_interpreter.env);
+                    self.module_cache.lock().await.insert(module_key.clone(), module_interpreter.env);
                 }
                 
                 // Import symbols
-                let module_env = self.module_cache.get(&module_key).unwrap();
+                let cache = self.module_cache.lock().await;
+                let module_env = cache.get(&module_key).unwrap();
                 let alias = import.alias.clone().unwrap_or(import.module.clone());
                 
                 let public_vars = module_env.get_all_public();
@@ -279,13 +298,18 @@ impl Interpreter {
                 // Load and execute the package module
                 let module_key = entry_path.to_string_lossy().to_string();
                 
-                if !self.module_cache.contains_key(&module_key) {
+                // Check cache first with lock
+                let needs_load = !self.module_cache.lock().await.contains_key(&module_key);
+                
+                if needs_load {
                     let source = fs::read_to_string(&entry_path).map_err(|e| {
                         FlowError::runtime(
                             &format!("Failed to read package: {}", e),
                             0, 0
                         )
                     })?;
+                    // Strip BOM
+                    let source = source.replace("\u{feff}", "");
                     
                     let tokens = crate::lexer::tokenize(&source)?;
                     let ast = crate::parser::parse(tokens)?;
@@ -297,12 +321,21 @@ impl Interpreter {
                         .unwrap_or("main.flow")
                         .to_string();
                     
+                    // Share the cache state!
+                    module_interpreter.module_cache = self.module_cache.clone();
+                    module_interpreter.sigil_definitions = self.sigil_definitions.clone();
+
+                    // Inherit parent's project_root for pkg: resolution in nested dependencies
+                    module_interpreter.project_root = self.project_root.clone();
+                    
                     module_interpreter.execute(ast).await?;
-                    self.module_cache.insert(module_key.clone(), module_interpreter.env);
+                    self.module_cache.lock().await.insert(module_key.clone(), module_interpreter.env);
                 }
                 
                 // Import symbols
-                let module_env = self.module_cache.get(&module_key).unwrap();
+                // Import symbols
+                let cache = self.module_cache.lock().await;
+                let module_env = cache.get(&module_key).unwrap();
                 let alias = import.alias.clone().unwrap_or(import.module.clone());
                 
                 let public_vars = module_env.get_all_public();
@@ -372,7 +405,9 @@ impl Interpreter {
         }
         
         // 2. Check cache or load
-        if !self.module_cache.contains_key(&module_key) {
+        let needs_load = !self.module_cache.lock().await.contains_key(&module_key);
+
+        if needs_load {
             // Push to loading stack before loading
             self.loading_stack.push(module_key.clone());
             
@@ -383,6 +418,8 @@ impl Interpreter {
                     0, 0
                 )
             })?;
+            // Strip BOM
+            let source = source.replace("\u{feff}", "");
             
             // Parse
             let tokens = crate::lexer::tokenize(&source)?;
@@ -392,6 +429,10 @@ impl Interpreter {
             let module_dir = canonical_path.parent().unwrap().to_path_buf();
             let mut module_interpreter = Interpreter::with_dir(module_dir, self.config.clone());
             
+            // Share the cache state!
+            module_interpreter.module_cache = self.module_cache.clone();
+            module_interpreter.sigil_definitions = self.sigil_definitions.clone();
+
             // Set the current file for error reporting
             module_interpreter.current_file = canonical_path.file_name()
                 .and_then(|n| n.to_str())
@@ -405,14 +446,15 @@ impl Interpreter {
             module_interpreter.execute(ast).await?;
             
             // Cache environment
-            self.module_cache.insert(module_key.clone(), module_interpreter.env);
+            self.module_cache.lock().await.insert(module_key.clone(), module_interpreter.env);
             
             // Pop from loading stack after successful load
             self.loading_stack.pop();
         }
         
         // 3. Import symbols
-        let module_env = self.module_cache.get(&module_key).unwrap();
+        let cache = self.module_cache.lock().await;
+        let module_env = cache.get(&module_key).unwrap();
         
         // Handle selective imports or full module import
         if let Some(selective_imports) = &import.selective {
@@ -452,7 +494,7 @@ impl Interpreter {
         Ok(())
     }
     
-    #[async_recursion::async_recursion(?Send)]
+    #[async_recursion::async_recursion]
     pub async fn execute_statement(&mut self, stmt: &Statement) -> Result<Option<Value>, FlowError> {
         match stmt {
             Statement::Let { name, type_annotation, value, is_exported, line } => {
@@ -539,12 +581,21 @@ impl Interpreter {
                 let param_names: Vec<String> = params.iter().map(|p| p.name.clone()).collect();
                 let param_types: Vec<Option<crate::types::EssenceType>> = params.iter().map(|p| p.type_annotation.clone()).collect();
                 
+                // Capture module-level bindings for closure
+                let captured = self.env.get_all_visible();
+                let closure = if captured.is_empty() {
+                    None
+                } else {
+                    Some(Arc::new(captured))
+                };
+                
                 let func = Value::Function {
                     params: param_names,
                     param_types,
                     return_type: return_type.clone(),
                     body: Arc::new(body.clone()),
                     is_async: false,
+                    closure,
                 };
                 self.env.define_with_export(name.clone(), func, false, *is_exported);
                 Ok(None)
@@ -556,12 +607,21 @@ impl Interpreter {
                 // but we could add it similarly. For now, filling with None.
                 let param_types = vec![None; params.len()];
                 
+                // Capture module-level bindings for closure
+                let captured = self.env.get_all_visible();
+                let closure = if captured.is_empty() {
+                    None
+                } else {
+                    Some(Arc::new(captured))
+                };
+                
                 let func = Value::Function {
                     params: param_names,
                     param_types,
                     return_type: None,
                     body: Arc::new(body.clone()),
                     is_async: true,
+                    closure,
                 };
                 self.env.define_with_export(name.clone(), func, false, *is_exported);
                 Ok(None)
@@ -1097,13 +1157,13 @@ impl Interpreter {
             
             // Sigil type definitions (stored for type checking but don't execute)
             Statement::SigilDecl { name, fields, is_exported: _, line: _ } => {
-                self.sigil_definitions.insert(name.clone(), fields.clone());
+                self.sigil_definitions.lock().await.insert(name.clone(), fields.clone());
                 Ok(None)
             }
         }
     }
     
-    pub fn evaluate_expression<'a>(&'a mut self, expr: &'a Expression) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Value, FlowError>> + 'a>> {
+    pub fn evaluate_expression<'a>(&'a mut self, expr: &'a Expression) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Value, FlowError>> + Send + 'a>> {
         Box::pin(async move {
         match expr {
             Expression::Number(n) => Ok(Value::Number(*n)),
@@ -1176,7 +1236,7 @@ impl Interpreter {
                 let func_val = self.evaluate_expression(callee).await?;
                 
                 match func_val {
-                    Value::Function { params, param_types, return_type, body, is_async: _ } => {
+                    Value::Function { params, param_types, return_type, body, is_async: _, closure } => {
                         if params.len() != arg_values.len() {
                             return Err(FlowError::runtime(
                                 &format!(
@@ -1209,6 +1269,13 @@ impl Interpreter {
                         
                         // Create new scope for function
                         self.env.push_scope();
+
+                        // Restore closure bindings if present
+                        if let Some(ref captured) = closure {
+                            for (name, value) in captured.iter() {
+                                self.env.define(name.clone(), value.clone(), true);
+                            }
+                        }
                         
                         // Bind parameters
                         for (param, arg) in params.iter().zip(arg_values.iter()) {
@@ -1281,14 +1348,16 @@ impl Interpreter {
 
             // NEW: Evaluate Sigil Instantiation with Validation
             Expression::SigilInstance { sigil_name, fields, line } => {
-                // 1. Check if sigil is defined
-                let sigil_def = self.sigil_definitions.get(sigil_name).cloned().ok_or_else(|| {
+                // 1. Check if sigil is defined (get lock)
+                let locked_defs = self.sigil_definitions.lock().await;
+                let sigil_def = locked_defs.get(sigil_name).cloned().ok_or_else(|| {
                     FlowError::runtime(
                         &format!("Unknown Sigil type: '{}'", sigil_name),
                         *line,
                         0
                     )
                 })?;
+                drop(locked_defs); // Release lock before awaiting evaluations
 
                 // 2. Evaluate fields into a map
                 let mut instance_fields = HashMap::new();
@@ -1355,6 +1424,19 @@ impl Interpreter {
                             )
                         })
                     }
+                    (Value::String(s), Value::Number(n)) => {
+                        let idx = n as usize;
+                        let chars: Vec<char> = s.chars().collect();
+                        if idx < chars.len() {
+                            Ok(Value::String(Arc::new(chars[idx].to_string())))
+                        } else {
+                            Err(FlowError::out_of_range(
+                                &format!("Index {} is beyond the Silk's length!", idx),
+                                0,
+                                0,
+                            ))
+                        }
+                    }
                     _ => Err(FlowError::type_error(
                         "Invalid indexing operation!",
                         0,
@@ -1374,6 +1456,53 @@ impl Interpreter {
                 
                 // Dispatch based on object type
                 match &obj_value {
+                    Value::String(s) => {
+                        match method.as_str() {
+                            "len" => {
+                                if !arg_values.is_empty() {
+                                    return Err(FlowError::runtime("Silk.len() takes no arguments", 0, 0));
+                                }
+                                Ok(Value::Number(s.chars().count() as f64))
+                            }
+                            "upper" => {
+                                if !arg_values.is_empty() {
+                                    return Err(FlowError::runtime("Silk.upper() takes no arguments", 0, 0));
+                                }
+                                Ok(Value::String(Arc::new(s.to_uppercase())))
+                            }
+                            "lower" => {
+                                if !arg_values.is_empty() {
+                                    return Err(FlowError::runtime("Silk.lower() takes no arguments", 0, 0));
+                                }
+                                Ok(Value::String(Arc::new(s.to_lowercase())))
+                            }
+                            "substring" => {
+                                if arg_values.len() != 2 {
+                                    return Err(FlowError::runtime("Silk.substring() takes 2 arguments (start, end)", 0, 0));
+                                }
+                                let start = match arg_values[0] {
+                                    Value::Number(n) => n as usize,
+                                    _ => return Err(FlowError::type_error("Start index must be a number", 0, 0)),
+                                };
+                                let end = match arg_values[1] {
+                                    Value::Number(n) => n as usize,
+                                    _ => return Err(FlowError::type_error("End index must be a number", 0, 0)),
+                                };
+                                
+                                let chars: Vec<char> = s.chars().collect();
+                                if start > chars.len() || end > chars.len() || start > end {
+                                     return Err(FlowError::out_of_range("Substring indices out of bounds", 0, 0));
+                                }
+                                let substr: String = chars[start..end].iter().collect();
+                                Ok(Value::String(Arc::new(substr)))
+                            }
+                            _ => Err(FlowError::runtime(
+                                &format!("Unknown method '{}' on Silk", method),
+                                0,
+                                0,
+                            )),
+                        }
+                    }
                     Value::Array(arr) => {
                         match method.as_str() {
                             "len" => {
@@ -1488,7 +1617,7 @@ impl Interpreter {
                                 
                                 for item in arr.iter() {
                                     let mapped_value = match &callback {
-                                        Value::Function { params, param_types: _, return_type: _, body, is_async: _ } => {
+                                        Value::Function { params, param_types: _, return_type: _, body, is_async: _, closure } => {
                                             if params.is_empty() {
                                                 return Err(FlowError::runtime(
                                                     "Constellation.constellation() Spell must accept at least 1 parameter",
@@ -1498,6 +1627,12 @@ impl Interpreter {
                                             }
                                             
                                             self.env.push_scope();
+                                            // Restore closure bindings if present
+                                            if let Some(ref captured) = closure {
+                                                for (name, value) in captured.iter() {
+                                                    self.env.define(name.clone(), value.clone(), true);
+                                                }
+                                            }
                                             // Bind the element to the first parameter
                                             self.env.define(params[0].clone(), item.clone(), true);
                                             
@@ -1542,7 +1677,7 @@ impl Interpreter {
                                 
                                 for item in arr.iter() {
                                     let should_keep = match &callback {
-                                        Value::Function { params, param_types: _, return_type: _, body, is_async: _ } => {
+                                        Value::Function { params, param_types: _, return_type: _, body, is_async: _, closure } => {
                                             if params.is_empty() {
                                                 return Err(FlowError::runtime(
                                                     "Constellation.filter() Spell must accept at least 1 parameter",
@@ -1552,6 +1687,12 @@ impl Interpreter {
                                             }
                                             
                                             self.env.push_scope();
+                                            // Restore closure bindings if present
+                                            if let Some(ref captured) = closure {
+                                                for (name, value) in captured.iter() {
+                                                    self.env.define(name.clone(), value.clone(), true);
+                                                }
+                                            }
                                             self.env.define(params[0].clone(), item.clone(), true);
                                             
                                             let mut ret_val = Value::Null;
@@ -1599,7 +1740,7 @@ impl Interpreter {
                                 
                                 for item in arr.iter() {
                                     accumulator = match &callback {
-                                        Value::Function { params, param_types: _, return_type: _, body, is_async: _ } => {
+                                        Value::Function { params, param_types: _, return_type: _, body, is_async: _, closure } => {
                                             if params.len() < 2 {
                                                 return Err(FlowError::runtime(
                                                     "Constellation.reduce() Spell must accept 2 parameters (accumulator, element)",
@@ -1609,6 +1750,12 @@ impl Interpreter {
                                             }
                                             
                                             self.env.push_scope();
+                                            // Restore closure bindings if present
+                                            if let Some(ref captured) = closure {
+                                                for (name, value) in captured.iter() {
+                                                    self.env.define(name.clone(), value.clone(), true);
+                                                }
+                                            }
                                             self.env.define(params[0].clone(), accumulator.clone(), true);
                                             self.env.define(params[1].clone(), item.clone(), true);
                                             
@@ -1651,7 +1798,7 @@ impl Interpreter {
                                 
                                 for item in arr.iter() {
                                     let matches = match &callback {
-                                        Value::Function { params, param_types: _, return_type: _, body, is_async: _ } => {
+                                        Value::Function { params, param_types: _, return_type: _, body, is_async: _, closure } => {
                                             if params.is_empty() {
                                                 return Err(FlowError::runtime(
                                                     "Constellation.find() Spell must accept at least 1 parameter",
@@ -1661,6 +1808,12 @@ impl Interpreter {
                                             }
                                             
                                             self.env.push_scope();
+                                            // Restore closure bindings if present
+                                            if let Some(ref captured) = closure {
+                                                for (name, value) in captured.iter() {
+                                                    self.env.define(name.clone(), value.clone(), true);
+                                                }
+                                            }
                                             self.env.define(params[0].clone(), item.clone(), true);
                                             
                                             let mut ret_val = Value::Null;
@@ -1707,7 +1860,7 @@ impl Interpreter {
                                 
                                 for item in arr.iter() {
                                     let passes = match &callback {
-                                        Value::Function { params, param_types: _, return_type: _, body, is_async: _ } => {
+                                        Value::Function { params, param_types: _, return_type: _, body, is_async: _, closure } => {
                                             if params.is_empty() {
                                                 return Err(FlowError::runtime(
                                                     "Constellation.every() Spell must accept at least 1 parameter",
@@ -1717,6 +1870,12 @@ impl Interpreter {
                                             }
                                             
                                             self.env.push_scope();
+                                            // Restore closure bindings if present
+                                            if let Some(ref captured) = closure {
+                                                for (name, value) in captured.iter() {
+                                                    self.env.define(name.clone(), value.clone(), true);
+                                                }
+                                            }
                                             self.env.define(params[0].clone(), item.clone(), true);
                                             
                                             let mut ret_val = Value::Null;
@@ -1763,7 +1922,7 @@ impl Interpreter {
                                 
                                 for item in arr.iter() {
                                     let passes = match &callback {
-                                        Value::Function { params, param_types: _, return_type: _, body, is_async: _ } => {
+                                        Value::Function { params, param_types: _, return_type: _, body, is_async: _, closure } => {
                                             if params.is_empty() {
                                                 return Err(FlowError::runtime(
                                                     "Constellation.some() Spell must accept at least 1 parameter",
@@ -1773,6 +1932,12 @@ impl Interpreter {
                                             }
                                             
                                             self.env.push_scope();
+                                            // Restore closure bindings if present
+                                            if let Some(ref captured) = closure {
+                                                for (name, value) in captured.iter() {
+                                                    self.env.define(name.clone(), value.clone(), true);
+                                                }
+                                            }
                                             self.env.define(params[0].clone(), item.clone(), true);
                                             
                                             let mut ret_val = Value::Null;
@@ -1867,7 +2032,7 @@ impl Interpreter {
                                 };
                                 (af.0)(arg_values, ctx).await
                             }
-                            Value::Function { params, param_types: _, return_type, body, is_async: _ } => {
+                            Value::Function { params, param_types: _, return_type, body, is_async: _, closure } => {
                                 if params.len() != arg_values.len() {
                                     return Err(FlowError::runtime(
                                         &format!("Function expects {} arguments, got {}", params.len(), arg_values.len()),
@@ -1877,6 +2042,12 @@ impl Interpreter {
                                 }
                                 
                                 self.env.push_scope();
+                                // Restore closure bindings if present
+                                if let Some(ref captured) = closure {
+                                    for (name, value) in captured.iter() {
+                                        self.env.define(name.clone(), value.clone(), true);
+                                    }
+                                }
                                 for (param, arg) in params.iter().zip(arg_values.iter()) {
                                     self.env.define(param.clone(), arg.clone(), true);
                                 }
@@ -1973,12 +2144,21 @@ impl Interpreter {
                     InlineSpellBody::Block(stmts) => stmts.clone(),
                 };
                 
+                // Capture module-level bindings for closure
+                let captured = self.env.get_all_visible();
+                let closure = if captured.is_empty() {
+                    None
+                } else {
+                    Some(Arc::new(captured))
+                };
+
                 Ok(Value::Function {
                     params: params.clone(),
                     param_types: param_types.clone(),
                     return_type: return_type.clone(),
                     body: Arc::new(body_statements),
                     is_async: false,
+                    closure,
                 })
             }
         }

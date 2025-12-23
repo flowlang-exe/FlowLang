@@ -208,7 +208,7 @@ async fn run_init(name: String) {
 
 shout("✨ The Flow has begun!")
 
-cast Spell greet(Silk name) -> Silk {
+cast Spell greet(name) {
     return "Hello, " + name + "!"
 }
 
@@ -246,100 +246,6 @@ fn print_banner() {
     println!();
 }
 
-async fn run_install(verbose: bool) {
-    let config_path = PathBuf::from("config.flowlang.json");
-    
-    if !config_path.exists() {
-        eprintln!("{}", "❌ No config.flowlang.json found. Run 'flowlang init' first.".red().bold());
-        return;
-    }
-    
-    let config = match config::ProjectConfig::load(&config_path) {
-        Ok(c) => c,
-        Err(e) => {
-            error::print_error(&e);
-            return;
-        }
-    };
-    
-    if config.packages.is_empty() {
-        println!("{}", "📦 No packages to install.".yellow());
-        return;
-    }
-    
-    println!("{}", "📦 Installing packages...".bright_cyan().bold());
-    
-    let project_root = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
-    let pm = package_manager::PackageManager::new(project_root);
-    
-    match pm.install_all(&config) {
-        Ok(installed) => {
-            println!();
-            println!("{} {} package(s) installed.", "✅".green(), installed.len());
-            if verbose {
-                for (alias, path) in &installed {
-                    println!("   {} -> {}", alias.bright_cyan(), path.display());
-                }
-            }
-        }
-        Err(e) => {
-            error::print_error(&e);
-        }
-    }
-}
-
-async fn run_add(package: String, alias: Option<String>, _verbose: bool) {
-    let config_path = PathBuf::from("config.flowlang.json");
-    
-    if !config_path.exists() {
-        eprintln!("{}", "❌ No config.flowlang.json found. Run 'flowlang init' first.".red().bold());
-        return;
-    }
-    
-    // Parse package URL to get repo name for default alias
-    let spec = match package_manager::PackageSpec::parse(&package) {
-        Ok(s) => s,
-        Err(e) => {
-            error::print_error(&e);
-            return;
-        }
-    };
-    
-    let pkg_alias = alias.unwrap_or_else(|| spec.repo.clone());
-    
-    // Load and update config
-    let mut config = match config::ProjectConfig::load(&config_path) {
-        Ok(c) => c,
-        Err(e) => {
-            error::print_error(&e);
-            return;
-        }
-    };
-    
-    if config.packages.contains_key(&pkg_alias) {
-        println!("{} Package '{}' already exists in config.", "⚠️".yellow(), pkg_alias);
-        return;
-    }
-    
-    config.packages.insert(pkg_alias.clone(), package.clone());
-    
-    // Save config
-    if let Err(e) = config.save(&config_path) {
-        error::print_error(&e);
-        return;
-    }
-    
-    println!("{} Added '{}' -> '{}'", "✅".green(), pkg_alias.bright_cyan(), package);
-    
-    // Install the package
-    let project_root = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
-    let pm = package_manager::PackageManager::new(project_root);
-    
-    if let Err(e) = pm.fetch_package(&spec) {
-        error::print_error(&e);
-    }
-}
-
 async fn run_file(path: PathBuf, config: config::ProjectConfig, verbose: bool, trace: bool, trace_depth: usize, trace_raw: bool) {
     use std::time::Instant;
     
@@ -364,6 +270,9 @@ async fn run_file(path: PathBuf, config: config::ProjectConfig, verbose: bool, t
     // Read the source file
     let source = match fs::read_to_string(&path) {
         Ok(content) => {
+            // Strip BOM if present
+            let content = content.replace("\u{feff}", "");
+            
             if verbose {
                 println!("{} {} bytes", "✓ File read:".green(), content.len());
             }
@@ -486,88 +395,155 @@ async fn run_file(path: PathBuf, config: config::ProjectConfig, verbose: bool, t
     }
     
     let exec_time = exec_start.elapsed();
-    
-    // Event loop: keep running while there are active handles
-    let runtime = interpreter.runtime();
-    let handle_count = runtime.active_handle_count().await;
-    
-    if handle_count > 0 {
-        if verbose {
-            println!("{}", "─".repeat(50).dimmed());
-            println!("{} {} active handle(s)", 
-                "🔄 Event loop starting:".bright_cyan().bold(),
-                handle_count
-            );
-        }
-        
-        // Set up Ctrl+C handler
-        let shutdown_signal = runtime.shutdown_signal();
-        tokio::spawn(async move {
-            if let Ok(()) = tokio::signal::ctrl_c().await {
-                shutdown_signal.store(true, std::sync::atomic::Ordering::SeqCst);
-            }
-        });
-        
-        // Custom event loop that processes callbacks
-        loop {
-            // Check for shutdown signal
-            if runtime.is_shutdown_signaled() {
-                if verbose {
-                    println!("{}", "\n⚡ Shutdown signal received".yellow());
-                }
-                break;
-            }
-            
-            // Check handle count
-            let count = runtime.active_handle_count().await;
-            if count == 0 {
-                if verbose {
-                    println!("{}", "✨ All handles closed, exiting event loop".bright_green());
-                }
-                break;
-            }
-            
-            // Process pending callbacks (fire-and-forget like timers)
-            while let Some(request) = runtime.run_event_loop_tick().await {
-                // Execute the callback using the interpreter
-                if let Err(e) = interpreter.execute_function(request.callback, request.args).await {
-                    eprintln!("{} {}", "⚠️ Callback error:".yellow(), e);
-                }
-            }
-            
-            // Process web callbacks (with response) - these need response sent back
-            while let Some(web_request) = runtime.get_web_callback().await {
-                // Execute the handler and get result
-                let result = match interpreter.execute_function(web_request.callback, web_request.args).await {
-                    Ok(value) => value,
-                    Err(e) => {
-                        eprintln!("{} {}", "⚠️ Web handler error:".yellow(), e);
-                        crate::types::Value::String(std::sync::Arc::new(format!("Error: {}", e)))
-                    }
-                };
-                
-                // Send response back to web handler
-                let _ = web_request.response_tx.send(result);
-            }
-            
-            // Brief sleep to avoid busy-waiting
-            tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;
-        }
-        
-        if verbose {
-            println!("{}", "🏁 Event loop ended".bright_cyan());
-        }
-    }
-    
-    let total_time = start_time.elapsed();
-    
+
+    // ═══════════════════════════════════════════════════════════════
+// 🚀 SIMPLE PIPELINED APPROACH - No Spawn Needed
+// 
+// Instead of spawning tasks, we process requests in a pipelined fashion:
+// - Fetch multiple requests at once
+// - Process them sequentially but quickly
+// - This reduces idle time between requests
+// ═══════════════════════════════════════════════════════════════
+
+// Event loop: keep running while there are active handles
+let runtime = interpreter.runtime();
+let handle_count = runtime.active_handle_count().await;
+
+if handle_count > 0 {
     if verbose {
         println!("{}", "─".repeat(50).dimmed());
-        println!("{}", "✅ Execution completed successfully".bright_green().bold());
-        println!("\n{}", "⏱️  Timing:".bright_yellow());
-        println!("   Execution: {:.2}ms", exec_time.as_secs_f64() * 1000.0);
-        println!("   Total:     {:.2}ms", total_time.as_secs_f64() * 1000.0);
+        println!("{} {} active handle(s)", 
+            "🔄 Event loop starting:".bright_cyan().bold(),
+            handle_count
+        );
     }
+    
+    // Set up Ctrl+C handler
+    let shutdown_signal = runtime.shutdown_signal();
+    tokio::spawn(async move {
+        if let Ok(()) = tokio::signal::ctrl_c().await {
+            shutdown_signal.store(true, std::sync::atomic::Ordering::SeqCst);
+        }
+    });
+    
+    // Batch processing for better throughput
+    let batch_size = 10; // Process up to 10 requests per tick
+    let mut total_requests = 0u64;
+    
+    if verbose {
+        println!("{} Batch processing (up to {} per tick)", 
+            "🔧 Mode:".bright_cyan().bold(),
+            batch_size
+        );
+    }
+    
+    // Main event loop
+    loop {
+        // Check for shutdown signal
+        if runtime.is_shutdown_signaled() {
+            if verbose {
+                println!("{}", "\n⚡ Shutdown signal received".yellow());
+            }
+            break;
+        }
+        
+        // Check handle count
+        let count = runtime.active_handle_count().await;
+        if count == 0 {
+            if verbose {
+                println!("{}", "✨ All handles closed".bright_green());
+            }
+            break;
+        }
+        
+        // Process pending timer callbacks (fire-and-forget)
+        while let Some(request) = runtime.run_event_loop_tick().await {
+            if let Err(e) = interpreter.execute_function(request.callback, request.args).await {
+                eprintln!("{} {}", "⚠️ Callback error:".yellow(), e);
+            }
+        }
+        
+        // Process web callbacks concurrently
+        let semaphore = runtime.web_handler_semaphore();
+        
+        // Loop until there are no more requests OR we hit a reasonable batch size per tick
+        // But since we are spawning tasks, we can process as many as the channel gives us
+        // limited by the semaphore if we want to throttle spawning (or the tasks throttle themselves)
+        let mut loop_batch = 0;
+        
+        while loop_batch < batch_size {
+            // Check if we have permit for new handler
+            // If semaphore is closed/zero, we skip this tick to handle other events
+            if semaphore.available_permits() > 0 {
+                match runtime.get_web_callback().await {
+                    Some(web_request) => {
+                        // Clone interpreter for this task
+                        // This uses our new Arc<Mutex> shared state for modules
+                        let mut task_interpreter = interpreter.clone();
+                        let permit = semaphore.clone().acquire_owned().await.unwrap();
+                        
+                        tokio::spawn(async move {
+                            // The permit is held for the duration of this block
+                            let _permit = permit;
+                            
+                            // Execute the handler
+                            let result = match task_interpreter.execute_function(
+                                web_request.callback, 
+                                web_request.args
+                            ).await {
+                                Ok(value) => value,
+                                Err(e) => {
+                                    eprintln!("{} {}", "⚠️ Web handler error:".yellow(), e);
+                                    crate::types::Value::String(std::sync::Arc::new(format!("Error: {}", e)))
+                                }
+                            };
+                            
+                            // Send response back
+                            let _ = web_request.response_tx.send(result);
+                        });
+                        
+                        total_requests += 1;
+                        loop_batch += 1;
+                    }
+                    None => {
+                        break;
+                    }
+                }
+            } else {
+                // Max concurrent handlers reached, wait for next tick
+                break;
+            }
+        }
+        
+        // Brief sleep only if we didn't process a full batch
+        if loop_batch == 0 {
+            tokio::time::sleep(tokio::time::Duration::from_millis(1)).await;
+        } else {
+            // Yield to allow other tasks to run
+            tokio::task::yield_now().await;
+        }
+    }
+    
+    if verbose {
+        println!("{}", "🏁 Event loop ended".bright_cyan());
+        if total_requests > 0 {
+            println!("{} {} web requests processed", 
+                "📊 Total:".bright_green(),
+                total_requests
+            );
+        }
+    }
+}
+
+let total_time = start_time.elapsed();
+
+if verbose {
+    println!("{}", "─".repeat(50).dimmed());
+    println!("{}", "✅ Execution completed successfully".bright_green().bold());
+    println!("\n{}", "⏱️  Timing:".bright_yellow());
+    println!("   Execution: {:.2}ms", exec_time.as_secs_f64() * 1000.0);
+    println!("   Total:     {:.2}ms", total_time.as_secs_f64() * 1000.0);
+}
 }
 
 async fn dev_lex(path: PathBuf) {

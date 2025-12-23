@@ -68,25 +68,6 @@ async fn web_serve(args: Vec<Value>, ctx: AsyncContext) -> Result<Value, FlowErr
     let callback_tx = ctx.runtime.web_callback_sender();
     let runtime = ctx.runtime.clone();
 
-    // Create Request/Response Constants to reduce allocations in the hot loop
-    struct RequestConstants {
-        empty_map: Value,
-        empty_string: Value,
-        protocol: Value,
-        method_get: Value,
-        unknown_ip: Value,
-        localhost: Value,
-    }
-
-    let req_constants = Arc::new(RequestConstants {
-        empty_map: Value::Relic(Arc::new(HashMap::new())),
-        empty_string: Value::String(Arc::new(String::new())),
-        protocol: Value::String(Arc::new("http".to_string())),
-        method_get: Value::String(Arc::new("GET".to_string())),
-        unknown_ip: Value::String(Arc::new("unknown".to_string())),
-        localhost: Value::String(Arc::new("localhost".to_string())),
-    });
-
     // Create Response Prototype (Singleton)
     // Contains efficient static references to helper functions to avoid
     // rebuilding this HashMap for every single request (allocating ~16 strings/Arcs per req).
@@ -118,7 +99,6 @@ async fn web_serve(args: Vec<Value>, ctx: AsyncContext) -> Result<Value, FlowErr
         let handler_clone = handler.clone();
         let callback_tx_clone = callback_tx.clone();
         let response_prototype = response_prototype.clone(); // Clone the prototype Value (cheap Arc clone)
-        let req_constants = req_constants.clone();
 
         // Warp route that handles all requests
         // Note: Logic moved INSIDE the filter to run concurrently on Tokio thread pool
@@ -140,33 +120,32 @@ async fn web_serve(args: Vec<Value>, ctx: AsyncContext) -> Result<Value, FlowErr
                 let handler = handler_clone.clone();
                 let callback_tx = callback_tx_clone.clone();
                 let response_proto = response_prototype.clone();
-                let consts = req_constants.clone();
                 
                 async move {
                     // --- PRE-PROCESSING (Concurrent) ---
                     // This runs on a worker thread, unrelated to the interpreter lock
                     
                     let path_str = path.as_str().to_string();
+                    let body_str = String::from_utf8_lossy(&body).to_string();
+                    
+                    // Combine path with query string for 'url' field
+                    let full_path = if query.is_empty() {
+                        path_str.clone()
+                    } else {
+                        format!("{}?{}", path_str, query)
+                    };
                     
                     // Single-Pass Header Processing
                     // Extracts 'host' and builds the Relic map in one go
-                    let mut headers_relic = HashMap::with_capacity(headers.len());
-                    let mut host_val = consts.localhost.clone();
-                    let mut host_str: Option<String> = None; // Only allocate string if needed for URL
+                    let mut headers_relic = HashMap::new();
+                    let mut host = "localhost".to_string();
                     
                     for (k, v) in headers.iter() {
                         let k_str = k.as_str();
                         let v_str = v.to_str().unwrap_or("");
                         
                         if k_str == "host" {
-                            // If it's localhost, keep using the const (optimization)
-                            if v_str == "localhost" {
-                                // do nothing, host_val is already localhost
-                            } else {
-                                let s = v_str.to_string();
-                                host_str = Some(s.clone()); // Save for URL generation
-                                host_val = Value::String(Arc::new(s));
-                            }
+                            host = v_str.to_string();
                         }
                         
                         headers_relic.insert(
@@ -178,53 +157,33 @@ async fn web_serve(args: Vec<Value>, ctx: AsyncContext) -> Result<Value, FlowErr
                     // Parse path and query (cheap string operations)
                     let pathname = path_str.clone();
                     
-                    // Reuse empty maps for cookies/query
-                    let cookies_map = consts.empty_map.clone();
+                    // REMOVED: Eager Cookie Parsing (Expensive & often unused)
+                    // Users can parse req.headers["cookie"] if needed
+                    let cookies_map = Value::Relic(Arc::new(HashMap::new()));
                     
-                    // Query map - often empty, check first
-                    let (query_map, full_path) = if query.is_empty() {
-                         (consts.empty_map.clone(), path_str)
-                    } else {
-                        // REMOVED: Eager Query Parsing for map (user can parse string if needed)
-                         (consts.empty_map.clone(), format!("{}?{}", path_str, query))
-                    };
+                    // REMOVED: Eager Query Parsing (Expensive & often unused)
+                    // Users can parse req.url or req.query_string if needed
+                    let query_map = Value::Relic(Arc::new(HashMap::new()));
                     
                     // Build URL
-                    let host_string = host_str.as_deref().unwrap_or("localhost");
-                    let url = format!("http://{}{}", host_string, full_path);
-                    
-                    let ip = match addr {
-                        Some(a) => Value::String(Arc::new(a.ip().to_string())),
-                        None => consts.unknown_ip.clone(),
-                    };
-                    
-                    let method_val = if method == warp::http::Method::GET {
-                        consts.method_get.clone()
-                    } else {
-                        Value::String(Arc::new(method.to_string()))
-                    };
-                    
-                    let body_val = if body.is_empty() {
-                        consts.empty_string.clone()
-                    } else {
-                        let body_str = String::from_utf8_lossy(&body).to_string();
-                        Value::String(Arc::new(body_str))
-                    };
+                    let protocol = "http"; 
+                    let url = format!("{}://{}{}", protocol, host, full_path);
+                    let ip = addr.map(|a| a.ip().to_string()).unwrap_or_else(|| "unknown".to_string());
                     
                     // Create Request Object
                     // Minimized allocations where possible
-                    let mut req_map = HashMap::with_capacity(12);
-                    req_map.insert("method".to_string(), method_val);
+                    let mut req_map = HashMap::new();
+                    req_map.insert("method".to_string(), Value::String(Arc::new(method.to_string())));
                     req_map.insert("url".to_string(), Value::String(Arc::new(url)));
-                    req_map.insert("path".to_string(), Value::String(Arc::new(full_path))); 
-                    req_map.insert("pathname".to_string(), Value::String(Arc::new(pathname))); 
-                    req_map.insert("query".to_string(), query_map); 
+                    req_map.insert("path".to_string(), Value::String(Arc::new(full_path))); // Full path with query
+                    req_map.insert("pathname".to_string(), Value::String(Arc::new(pathname))); // Just path
+                    req_map.insert("query".to_string(), query_map); // Empty (Lazy)
                     req_map.insert("headers".to_string(), Value::Relic(Arc::new(headers_relic)));
-                    req_map.insert("cookies".to_string(), cookies_map); 
-                    req_map.insert("body".to_string(), body_val);
-                    req_map.insert("ip".to_string(), ip);
-                    req_map.insert("host".to_string(), host_val);
-                    req_map.insert("protocol".to_string(), consts.protocol.clone());
+                    req_map.insert("cookies".to_string(), cookies_map); // Empty (Lazy)
+                    req_map.insert("body".to_string(), Value::String(Arc::new(body_str)));
+                    req_map.insert("ip".to_string(), Value::String(Arc::new(ip)));
+                    req_map.insert("host".to_string(), Value::String(Arc::new(host)));
+                    req_map.insert("protocol".to_string(), Value::String(Arc::new(protocol.to_string())));
                     
                     let request_value = Value::Relic(Arc::new(req_map));
                     
@@ -358,7 +317,14 @@ fn res_json(args: Vec<Value>) -> Result<Value, FlowError> {
         return Err(FlowError::runtime("web.json expects 1 argument (data)", 0, 0));
     }
 
-    let body = crate::stdlib::json::value_to_json_string(&args[0]);
+    let body = match &args[0] {
+        Value::Relic(_) | Value::Array(_) => {
+            // Serialize to JSON string
+            crate::stdlib::json::value_to_json_string(&args[0])
+        }
+        Value::String(s) => (**s).clone(),
+        _ => args[0].to_string(),
+    };
 
     let mut map = HashMap::new();
     map.insert("status".to_string(), Value::Number(200.0));
